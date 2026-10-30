@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-013",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-30T05:07:42Z",
+  "sourceCommitSha": "58697e84abf7f596d9c900e2831b55206db0bac5",
+  "factProposals": [
+    {
+      "dimension": "integrations",
+      "value": "Locate tickets are received from the one-call centre (Blue Stakes of Utah) and the city's response is sent back through a client with timeout, capped retries and a log row per attempt. Built against a stand-in feed and a stand-in centre.",
+      "evidence": "server/bluestakes.js; server/locateTickets.js (importLocateTicket, deliverPendingResponses)"
+    },
+    {
+      "dimension": "current_workflow",
+      "value": "A locate ticket moves received → in_progress → responded → completed; it can be answered more than once (e.g. needs more time, then marked) before completion.",
+      "evidence": "server/locateTickets.js; tests/locateTickets.test.js"
+    },
+    {
+      "dimension": "approval_points",
+      "value": "A locate ticket cannot be completed until a final response has been delivered to the one-call centre; completed tickets cannot be changed or answered again.",
+      "evidence": "server/locateTickets.js (completeLocateTicket); tests/locateTickets.test.js"
+    },
+    {
+      "dimension": "data",
+      "value": "locate_tickets, bluestakes_outbox and bluestakes_log tables exist; a locate ticket can be linked to a work order.",
+      "evidence": "server/db.js"
+    },
+    {
+      "dimension": "security_context",
+      "value": "Changing locate tickets through the API needs the locate_tickets:write scope; no key gives 401, a key without the scope gives 403, and every refusal is audited. Changes record the person and the calling system.",
+      "evidence": "server/api/clients.js (requireAccess); tests/locateTicketsHttp.test.js"
+    },
+    {
+      "dimension": "actors",
+      "value": "Two new actors appear in the audit trail: 'bluestakes-feed' for imported tickets, and locators acting through an API client, recorded as '<person> via <system>'.",
+      "evidence": "server/locateTickets.js (FEED_ACTOR); server/api/server.js (actingAs)"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "Blue Stakes of Utah's real ticket feed format, delivery method, official response codes and credentials are not known; the stand-in format and the codes marked, clear_no_conflict and needs_more_time are assumptions.",
+      "evidence": "server/bluestakes/stand-in-tickets.json; server/locateTickets.js (RESPONSE_CODES)"
+    },
+    {
+      "dimension": "assumptions",
+      "value": "The STORY-013 brief says to use the existing Bluestakes data schema, that STORY-012 precedes it, and that it is the last story in the plan; no schema existed (it was built from the proposed locate_ticket table), STORY-012 is not built, and nine stories remain in Releases 1–4.",
+      "evidence": "knowledge/data-model.json; .colaberry/progress.json"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Require a delivered, final response before a locate ticket can be completed.",
+      "rationale": "A ticket must never be closed without the one-call centre being told the locate is done.",
+      "evidence": "server/locateTickets.js (completeLocateTicket)"
+    },
+    {
+      "statement": "Queue responses in an outbox in the same transaction as the response, then deliver with retries.",
+      "rationale": "A one-call centre outage must not lose a response, and a resend must not deliver it twice (response_id).",
+      "evidence": "server/locateTickets.js (respondToLocateTicket); server/bluestakes.js (createStandInBlueStakes)"
+    },
+    {
+      "statement": "Reuse the STORY-011 API keys with a separate write scope instead of building user logins now.",
+      "rationale": "Per-person access control belongs to STORY-007; a scoped key keeps read-only clients like Madison AI out of ticket changes today.",
+      "evidence": "server/api/clients.js (LOCATE_TICKETS_SCOPE, ForbiddenError)"
+    },
+    {
+      "statement": "Keep the response codes in one placeholder list.",
+      "rationale": "The official codes are unknown; replacing the list is the only change needed once they are.",
+      "evidence": "server/locateTickets.js (RESPONSE_CODES)"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "The person acting is whatever name the calling system sends; there is no per-person login yet.",
+      "evidence": "server/api/server.js (actingAs)"
+    },
+    {
+      "statement": "Re-sent tickets with changed details (amendments) are treated as duplicates and ignored.",
+      "evidence": "server/locateTickets.js (importLocateTicket)"
+    },
+    {
+      "statement": "Undelivered responses are resent only when deliverPendingResponses() is called; nothing runs it on a schedule.",
+      "evidence": "server/locateTickets.js (deliverPendingResponses)"
+    },
+    {
+      "statement": "Tickets arrive only through importLocateTicket(); there is no live feed connection or intake endpoint yet.",
+      "evidence": "server/locateTickets.js"
+    },
+    {
+      "statement": "Due times are stored but not enforced: nothing warns when a ticket is close to or past due.",
+      "evidence": "server/locateTickets.js"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/locateTickets.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/locateTicketsHttp.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/bluestakes/demo.js (npm run demo:tickets)"
+    },
+    {
+      "kind": "commit",
+      "ref": "58697e84abf7f596d9c900e2831b55206db0bac5"
+    }
+  ],
+  "measurementEvents": []
+}
