@@ -1,0 +1,32 @@
+{
+  "_about": "STAND-IN LOCATE TICKETS. Made-up tickets in an assumed shape, used until the city is connected to Blue Stakes of Utah. Not real tickets, excavators or addresses. The real feed's format may differ.",
+  "tickets": [
+    {
+      "ticket_number": "SI-2026-000101",
+      "ticket_type": "normal",
+      "excavator": { "name": "Stand-in Excavating Co." },
+      "work_description": "Install fence posts along the rear property line",
+      "dig_site": { "address": "Stand-in address: 120 Example Way", "lat": 40.5143, "lng": -112.0327 },
+      "received_at": "2026-10-30T08:00:00Z",
+      "due_at": "2026-11-03T08:00:00Z"
+    },
+    {
+      "ticket_number": "SI-2026-000102",
+      "ticket_type": "emergency",
+      "excavator": { "name": "Stand-in Water Repair LLC" },
+      "work_description": "Emergency repair of a leaking service line",
+      "dig_site": { "address": "Stand-in address: 224 Sample Ave", "lat": 40.5123, "lng": -112.0361 },
+      "received_at": "2026-10-30T09:15:00Z",
+      "due_at": "2026-10-30T11:15:00Z"
+    },
+    {
+      "ticket_number": "SI-2026-000103",
+      "ticket_type": "normal",
+      "excavator": { "name": "Stand-in Landscaping" },
+      "work_description": "Plant two trees in the front park strip",
+      "dig_site": { "address": "Stand-in address: 310 Demo Blvd" },
+      "received_at": "2026-10-30T10:30:00Z",
+      "due_at": "2026-11-03T10:30:00Z"
+    }
+  ]
+}

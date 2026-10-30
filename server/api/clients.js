@@ -18,6 +18,17 @@ export class UnauthorizedError extends Error {
   }
 }
 
+/** A valid key that lacks the permission for this request (HTTP 403). Still an UnauthorizedError. */
+export class ForbiddenError extends UnauthorizedError {
+  constructor(scope) {
+    super(`This key does not allow ${scope}`);
+    this.name = 'ForbiddenError';
+    this.scope = scope;
+  }
+}
+
+export const LOCATE_TICKETS_SCOPE = 'locate_tickets:write';
+
 /** The access could not be recorded, so it is refused: no data leaves without an audit entry. */
 export class AuditUnavailableError extends Error {
   constructor(cause) {
@@ -94,6 +105,27 @@ export function authenticate(db, presentedKey) {
 }
 
 /**
+ * The client a request comes from, if its key is valid and has `scope`. Otherwise the refusal is
+ * audited ('denied', without the key) and UnauthorizedError (no/invalid key) or ForbiddenError
+ * (valid key, missing scope) is thrown. If even the refusal cannot be audited, AuditUnavailableError.
+ */
+export function requireAccess(db, { key, operation, params = {}, scope }, { at = defaultNow(), audit = writeAudit } = {}) {
+  const client = authenticate(db, key);
+  if (client && client.scopes.includes(scope)) return client;
+
+  const reason = client ? `missing scope ${scope}` : 'missing or invalid API key';
+  try {
+    audit(db, {
+      entityType: 'api_access', entityId: client?.id ?? 'unknown', action: 'denied', actor: client?.name ?? 'anonymous',
+      after: { operation, params, reason }, at,
+    });
+  } catch (err) {
+    throw new AuditUnavailableError(err);
+  }
+  throw client ? new ForbiddenError(scope) : new UnauthorizedError();
+}
+
+/**
  * Run a read on behalf of an API client, with an audit entry for it.
  *
  * - No valid key, or missing scope: the refusal is audited and UnauthorizedError is thrown.
@@ -104,21 +136,8 @@ export function authenticate(db, presentedKey) {
  * never the key. `audit` is only replaceable so tests can prove the fail-closed behaviour.
  */
 export function auditedRead(db, { key, operation, params = {}, scope = READ_SCOPE }, read, { now = defaultNow, audit = writeAudit } = {}) {
-  const client = authenticate(db, key);
   const at = now();
-
-  if (!client || !client.scopes.includes(scope)) {
-    const reason = client ? `missing scope ${scope}` : 'missing or invalid API key';
-    try {
-      audit(db, {
-        entityType: 'api_access', entityId: client?.id ?? 'unknown', action: 'denied', actor: client?.name ?? 'anonymous',
-        after: { operation, params, reason }, at,
-      });
-    } catch (err) {
-      throw new AuditUnavailableError(err);
-    }
-    throw new UnauthorizedError(client ? `This key does not allow ${scope}` : undefined);
-  }
+  const client = requireAccess(db, { key, operation, params, scope }, { at, audit });
 
   return inTransaction(db, () => {
     const result = read(); // a failing read throws as itself

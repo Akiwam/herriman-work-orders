@@ -67,6 +67,58 @@ const SCHEMA = `
     duration_ms   INTEGER NOT NULL
   );
 
+  -- Utility locate tickets received from the one-call centre (Blue Stakes of Utah) (REQ-039).
+  -- Built from the proposed locate_ticket table in knowledge/data-model.json.
+  CREATE TABLE IF NOT EXISTS locate_tickets (
+    id               TEXT PRIMARY KEY,
+    ticket_number    TEXT NOT NULL UNIQUE,       -- the one-call centre's number; importing it twice makes one ticket
+    ticket_type      TEXT NOT NULL,              -- normal | emergency
+    status           TEXT NOT NULL,              -- received | in_progress | responded | completed
+    excavator_name   TEXT NOT NULL,
+    work_description TEXT NOT NULL,
+    dig_address      TEXT NOT NULL,
+    latitude         REAL,
+    longitude        REAL,
+    received_at      TEXT NOT NULL,
+    due_at           TEXT NOT NULL,              -- when the response is due to the one-call centre
+    locator_notes    TEXT,
+    marking_details  TEXT,
+    work_order_id    TEXT REFERENCES work_orders(id),
+    response_code    TEXT,
+    response_note    TEXT,
+    responded_at     TEXT,
+    completed_at     TEXT,
+    created_at       TEXT NOT NULL,
+    updated_at       TEXT NOT NULL
+  );
+
+  -- Responses waiting to be (or already) delivered to the one-call centre. Queued in the same
+  -- transaction as the response; response_id makes delivery idempotent on both sides.
+  CREATE TABLE IF NOT EXISTS bluestakes_outbox (
+    response_id   TEXT PRIMARY KEY,
+    ticket_id     TEXT NOT NULL REFERENCES locate_tickets(id),
+    response_code TEXT NOT NULL,
+    response_note TEXT,
+    status        TEXT NOT NULL DEFAULT 'pending',   -- pending | delivered | failed
+    attempts      INTEGER NOT NULL DEFAULT 0,
+    last_error    TEXT,
+    queued_at     TEXT NOT NULL,
+    delivered_at  TEXT
+  );
+
+  -- Every call to the one-call centre, one row per attempt. Append-only.
+  CREATE TABLE IF NOT EXISTS bluestakes_log (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    operation     TEXT NOT NULL,
+    ticket_number TEXT,
+    attempt       INTEGER NOT NULL,
+    outcome       TEXT NOT NULL,                 -- ok | error | timeout | unauthorized
+    error         TEXT,
+    started_at    TEXT NOT NULL,
+    finished_at   TEXT NOT NULL,
+    duration_ms   INTEGER NOT NULL
+  );
+
   -- Outside systems allowed to read work order data through the API (e.g. Madison AI).
   -- Only a hash of each key is stored; the key itself is shown once, when the client is created.
   CREATE TABLE IF NOT EXISTS api_clients (

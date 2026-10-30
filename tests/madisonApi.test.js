@@ -26,10 +26,13 @@ test('creating an API client returns its key once and stores only a hash', () =>
   const { db, client, key } = setup();
   assert.match(key, /^hwo_[0-9a-f]{8}_[A-Za-z0-9_-]{32}$/);
   assert.deepEqual(client.scopes, ['work_orders:read']);
+  // The secret is everything after "hwo_<8 hex>_". It can itself contain "_", so slice rather than split.
+  const secret = key.slice('hwo_'.length + 9);
+  assert.equal(secret.length, 32);
   const stored = JSON.stringify(db.prepare('SELECT * FROM api_clients').all());
-  assert.doesNotMatch(stored, new RegExp(key.split('_')[2]), 'the secret part of the key is not stored');
+  assert.ok(!stored.includes(secret), 'the secret part of the key is not stored');
   const audit = JSON.stringify(db.prepare("SELECT * FROM audit_entries WHERE entity_type = 'api_client'").all());
-  assert.doesNotMatch(audit, new RegExp(key.split('_')[2]));
+  assert.ok(!audit.includes(secret));
   assert.doesNotMatch(audit, /key_hash/);
 });
 

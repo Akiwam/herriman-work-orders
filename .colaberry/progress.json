@@ -583,20 +583,36 @@
       "criteria": [
         {
           "text": "Given a Bluestakes data entry, when I update the data, then the system reflects the changes accurately.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a Bluestakes data entry, when I mark it as complete, then the system updates its status to complete.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: Given a Bluestakes data entry update, when the update is made, then the system logs the change in the audit trail.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/locateTickets.js",
+        "server/bluestakes.js",
+        "server/bluestakes/stand-in-tickets.json",
+        "server/bluestakes/demo.js",
+        "server/api/server.js",
+        "server/api/clients.js",
+        "server/api/openapi.js",
+        "server/db.js",
+        "package.json",
+        "knowledge/notes.json",
+        "knowledge/data-model.json",
+        "tests/madisonApi.test.js"
+      ],
+      "tests_added": [
+        "tests/locateTickets.test.js",
+        "tests/locateTicketsHttp.test.js"
+      ],
+      "notes": "Locate tickets from Blue Stakes are imported, updated, answered and completed, each audited in the same transaction. Verified against a STAND-IN Blue Stakes feed and client with PLACEHOLDER response codes; no Blue Stakes access yet. Exposed as API endpoints that need the locate_tickets:write scope; refusals are audited. Per-person logins come with STORY-007. Also fixed a flaky STORY-011 test (tests/madisonApi.test.js). Run `npm test` and `npm run demo:tickets`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",

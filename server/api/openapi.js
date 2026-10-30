@@ -2,6 +2,7 @@
 // checker uses (WORK_ORDER_FIELDS), so the document and the real responses cannot drift apart.
 
 import { WORK_ORDER_FIELDS, SCHEMA_VERSION } from './workOrderFeed.js';
+import { RESPONSE_CODES } from '../locateTickets.js';
 
 function jsonType(spec) {
   const optional = spec.endsWith('?');
@@ -49,6 +50,27 @@ const errors = {
   401: { description: 'Missing or invalid API key', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
   503: { description: 'Database or audit trail unavailable; retry later. No partial data is ever returned.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
 };
+const ticketErrors = {
+  ...errors,
+  403: { description: 'Valid key, but it does not have locate_tickets:write', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+  404: { description: 'No such locate ticket', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+};
+const ticketId = { name: 'id', in: 'path', required: true, schema: { type: 'string' } };
+const ticketOk = { 200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/LocateTicketResult' } } } } };
+const jsonBody = (properties, required) => ({
+  required: true,
+  content: { 'application/json': { schema: { type: 'object', required, properties } } },
+});
+const actor = { type: 'string', description: 'The person acting; recorded in the audit trail with the calling system.' };
+
+// Locate ticket fields as stored (server/db.js, locate_tickets).
+const TICKET_FIELDS = {
+  id: 'string', ticket_number: 'string', ticket_type: 'string', status: 'string', excavator_name: 'string',
+  work_description: 'string', dig_address: 'string', latitude: 'number?', longitude: 'number?', received_at: 'string',
+  due_at: 'string', locator_notes: 'string?', marking_details: 'string?', work_order_id: 'string?', response_code: 'string?',
+  response_note: 'string?', responded_at: 'string?', completed_at: 'string?', created_at: 'string', updated_at: 'string',
+};
+
 const limit = { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 } };
 const cursor = { name: 'cursor', in: 'query', schema: { type: 'string' } };
 const ok = (schemaRef) => ({ 200: { description: 'OK', content: { 'application/json': { schema: schemaRef } } }, ...errors });
@@ -89,6 +111,41 @@ export function openApiDocument() {
           responses: { ...ok({ $ref: '#/components/schemas/SingleWorkOrder' }), 404: { description: 'No such work order' } },
         },
       },
+      '/locate-tickets/{id}': {
+        get: { summary: 'View a locate ticket (needs locate_tickets:write)', parameters: [ticketId], responses: { ...ticketOk, ...ticketErrors } },
+        patch: {
+          summary: 'Update a ticket\'s working details',
+          parameters: [ticketId],
+          requestBody: jsonBody({
+            actor,
+            status: { const: 'in_progress' },
+            locator_notes: { type: ['string', 'null'] },
+            marking_details: { type: ['string', 'null'] },
+            work_order_id: { type: ['string', 'null'] },
+          }, ['actor']),
+          responses: { ...ticketOk, ...ticketErrors, 409: { description: 'The ticket is completed' } },
+        },
+      },
+      '/locate-tickets/{id}/respond': {
+        post: {
+          summary: 'Answer the one-call centre and send the answer',
+          parameters: [ticketId],
+          requestBody: jsonBody({
+            actor,
+            code: { type: 'string', enum: Object.keys(RESPONSE_CODES), description: 'PLACEHOLDER codes until the official ones are known' },
+            note: { type: ['string', 'null'] },
+          }, ['actor', 'code']),
+          responses: { ...ticketOk, ...ticketErrors, 409: { description: 'The ticket is completed' } },
+        },
+      },
+      '/locate-tickets/{id}/complete': {
+        post: {
+          summary: 'Complete a ticket once its final answer has reached the one-call centre',
+          parameters: [ticketId],
+          requestBody: jsonBody({ actor }, ['actor']),
+          responses: { ...ticketOk, ...ticketErrors, 409: { description: 'Not answered yet, answer not delivered, needs more time, or already completed' } },
+        },
+      },
     },
     components: {
       securitySchemes: { apiKey: { type: 'http', scheme: 'bearer', description: 'Authorization: Bearer hwo_…' } },
@@ -101,6 +158,20 @@ export function openApiDocument() {
         SingleWorkOrder: {
           type: 'object', required: ['schema_version', 'item'],
           properties: { schema_version: { const: SCHEMA_VERSION }, item: { $ref: '#/components/schemas/WorkOrder' } },
+        },
+        LocateTicket: {
+          type: 'object',
+          required: Object.keys(TICKET_FIELDS),
+          properties: Object.fromEntries(Object.entries(TICKET_FIELDS).map(([f, spec]) => [f, jsonType(spec)])),
+        },
+        LocateTicketResult: {
+          type: 'object',
+          required: ['item'],
+          properties: {
+            item: { $ref: '#/components/schemas/LocateTicket' },
+            delivery: { type: 'string', enum: ['none', 'pending', 'delivered'] },
+            delivery_failures: { type: 'array', items: { type: 'object' } },
+          },
         },
         Error: {
           type: 'object', required: ['error', 'message'],

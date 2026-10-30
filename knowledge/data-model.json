@@ -6,260 +6,841 @@
     {
       "name": "work_order",
       "purpose": "A piece of maintenance work, from creation through completion.",
-      "requirements": ["REQ-001", "REQ-002", "REQ-032", "REQ-051"],
+      "requirements": [
+        "REQ-001",
+        "REQ-002",
+        "REQ-032",
+        "REQ-051"
+      ],
       "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "number", "type": "text", "note": "human-readable, unique" },
-        { "name": "title", "type": "text" },
-        { "name": "description", "type": "text" },
-        { "name": "work_type", "type": "text", "note": "used for heat maps by type (REQ-031)" },
-        { "name": "priority", "type": "text" },
-        { "name": "status", "type": "text", "note": "current step in its workflow" },
-        { "name": "workflow_id", "type": "uuid", "note": "→ workflow" },
-        { "name": "location_text", "type": "text", "note": "freeform location when GIS has none (REQ-032)" },
-        { "name": "latitude", "type": "numeric" },
-        { "name": "longitude", "type": "numeric" },
-        { "name": "is_public", "type": "boolean", "note": "visible on the public activity view (REQ-037)" },
-        { "name": "created_by", "type": "uuid", "note": "→ app_user" },
-        { "name": "assigned_to", "type": "uuid", "note": "→ app_user" },
-        { "name": "created_at", "type": "timestamptz" },
-        { "name": "updated_at", "type": "timestamptz" },
-        { "name": "completed_at", "type": "timestamptz" },
-        { "name": "completion_note", "type": "text" }
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "number",
+          "type": "text",
+          "note": "human-readable, unique"
+        },
+        {
+          "name": "title",
+          "type": "text"
+        },
+        {
+          "name": "description",
+          "type": "text"
+        },
+        {
+          "name": "work_type",
+          "type": "text",
+          "note": "used for heat maps by type (REQ-031)"
+        },
+        {
+          "name": "priority",
+          "type": "text"
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "note": "current step in its workflow"
+        },
+        {
+          "name": "workflow_id",
+          "type": "uuid",
+          "note": "→ workflow"
+        },
+        {
+          "name": "location_text",
+          "type": "text",
+          "note": "freeform location when GIS has none (REQ-032)"
+        },
+        {
+          "name": "latitude",
+          "type": "numeric"
+        },
+        {
+          "name": "longitude",
+          "type": "numeric"
+        },
+        {
+          "name": "is_public",
+          "type": "boolean",
+          "note": "visible on the public activity view (REQ-037)"
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "note": "→ app_user"
+        },
+        {
+          "name": "assigned_to",
+          "type": "uuid",
+          "note": "→ app_user"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "completed_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "completion_note",
+          "type": "text"
+        }
       ],
       "relationships": [
-        { "type": "many-to-many", "to": "asset", "via": "work_order_asset" },
-        { "type": "belongs to", "to": "workflow", "via": "workflow_id" },
-        { "type": "has many", "to": "audit_entry", "via": "entity_id" }
+        {
+          "type": "many-to-many",
+          "to": "asset",
+          "via": "work_order_asset"
+        },
+        {
+          "type": "belongs to",
+          "to": "workflow",
+          "via": "workflow_id"
+        },
+        {
+          "type": "has many",
+          "to": "audit_entry",
+          "via": "entity_id"
+        }
       ]
     },
     {
       "name": "asset",
       "purpose": "A physical asset mirrored from the primary GIS database.",
-      "requirements": ["REQ-023", "REQ-026"],
+      "requirements": [
+        "REQ-023",
+        "REQ-026"
+      ],
       "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "gis_feature_id", "type": "text", "note": "id in the GIS database, unique" },
-        { "name": "asset_type", "type": "text" },
-        { "name": "name", "type": "text" },
-        { "name": "attributes", "type": "jsonb", "note": "fields that autofill a work order" },
-        { "name": "geometry", "type": "geometry" },
-        { "name": "last_synced_at", "type": "timestamptz" }
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "gis_feature_id",
+          "type": "text",
+          "note": "id in the GIS database, unique"
+        },
+        {
+          "name": "asset_type",
+          "type": "text"
+        },
+        {
+          "name": "name",
+          "type": "text"
+        },
+        {
+          "name": "attributes",
+          "type": "jsonb",
+          "note": "fields that autofill a work order"
+        },
+        {
+          "name": "geometry",
+          "type": "geometry"
+        },
+        {
+          "name": "last_synced_at",
+          "type": "timestamptz"
+        }
       ],
       "relationships": [
-        { "type": "many-to-many", "to": "work_order", "via": "work_order_asset" },
-        { "type": "has many", "to": "gis_sync_event", "via": "asset_id" }
+        {
+          "type": "many-to-many",
+          "to": "work_order",
+          "via": "work_order_asset"
+        },
+        {
+          "type": "has many",
+          "to": "gis_sync_event",
+          "via": "asset_id"
+        }
       ]
     },
     {
       "name": "work_order_asset",
       "purpose": "Links the assets selected on the map to a work order.",
-      "requirements": ["REQ-023"],
+      "requirements": [
+        "REQ-023"
+      ],
       "fields": [
-        { "name": "work_order_id", "type": "uuid", "note": "→ work_order" },
-        { "name": "asset_id", "type": "uuid", "note": "→ asset" },
-        { "name": "selected_at", "type": "timestamptz" }
+        {
+          "name": "work_order_id",
+          "type": "uuid",
+          "note": "→ work_order"
+        },
+        {
+          "name": "asset_id",
+          "type": "uuid",
+          "note": "→ asset"
+        },
+        {
+          "name": "selected_at",
+          "type": "timestamptz"
+        }
       ],
       "relationships": [
-        { "type": "belongs to", "to": "work_order", "via": "work_order_id" },
-        { "type": "belongs to", "to": "asset", "via": "asset_id" }
+        {
+          "type": "belongs to",
+          "to": "work_order",
+          "via": "work_order_id"
+        },
+        {
+          "type": "belongs to",
+          "to": "asset",
+          "via": "asset_id"
+        }
       ]
     },
     {
       "name": "gis_sync_event",
       "purpose": "Every read from and write to the GIS database, so two-way sync can be audited and retried.",
-      "requirements": ["REQ-026"],
-      "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "direction", "type": "text", "note": "read | write" },
-        { "name": "asset_id", "type": "uuid", "note": "→ asset" },
-        { "name": "work_order_id", "type": "uuid", "note": "→ work_order, nullable" },
-        { "name": "idempotency_key", "type": "text", "note": "unique, so a retry never writes twice" },
-        { "name": "status", "type": "text", "note": "ok | failed" },
-        { "name": "error", "type": "text" },
-        { "name": "occurred_at", "type": "timestamptz" }
+      "requirements": [
+        "REQ-026"
       ],
-      "relationships": [{ "type": "belongs to", "to": "asset", "via": "asset_id" }]
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "direction",
+          "type": "text",
+          "note": "read | write"
+        },
+        {
+          "name": "asset_id",
+          "type": "uuid",
+          "note": "→ asset"
+        },
+        {
+          "name": "work_order_id",
+          "type": "uuid",
+          "note": "→ work_order, nullable"
+        },
+        {
+          "name": "idempotency_key",
+          "type": "text",
+          "note": "unique, so a retry never writes twice"
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "note": "ok | failed"
+        },
+        {
+          "name": "error",
+          "type": "text"
+        },
+        {
+          "name": "occurred_at",
+          "type": "timestamptz"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "asset",
+          "via": "asset_id"
+        }
+      ]
     },
     {
       "name": "service_request",
       "purpose": "A request a resident submits on the public reporting page.",
-      "requirements": ["REQ-037"],
-      "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "description", "type": "text" },
-        { "name": "location_text", "type": "text" },
-        { "name": "latitude", "type": "numeric" },
-        { "name": "longitude", "type": "numeric" },
-        { "name": "contact", "type": "text", "note": "optional; never shown publicly" },
-        { "name": "status", "type": "text" },
-        { "name": "work_order_id", "type": "uuid", "note": "→ work_order once triaged" },
-        { "name": "submitted_at", "type": "timestamptz" }
+      "requirements": [
+        "REQ-037"
       ],
-      "relationships": [{ "type": "becomes", "to": "work_order", "via": "work_order_id" }]
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "description",
+          "type": "text"
+        },
+        {
+          "name": "location_text",
+          "type": "text"
+        },
+        {
+          "name": "latitude",
+          "type": "numeric"
+        },
+        {
+          "name": "longitude",
+          "type": "numeric"
+        },
+        {
+          "name": "contact",
+          "type": "text",
+          "note": "optional; never shown publicly"
+        },
+        {
+          "name": "status",
+          "type": "text"
+        },
+        {
+          "name": "work_order_id",
+          "type": "uuid",
+          "note": "→ work_order once triaged"
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamptz"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "becomes",
+          "to": "work_order",
+          "via": "work_order_id"
+        }
+      ]
     },
     {
       "name": "locate_ticket",
-      "purpose": "A utility locate ticket received from the locate service, updated, completed and answered inside the platform.",
-      "requirements": ["REQ-039"],
-      "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "external_ticket_number", "type": "text", "note": "unique" },
-        { "name": "status", "type": "text" },
-        { "name": "response", "type": "text" },
-        { "name": "due_at", "type": "timestamptz" },
-        { "name": "responded_at", "type": "timestamptz" },
-        { "name": "work_order_id", "type": "uuid", "note": "→ work_order, nullable" }
+      "purpose": "A utility locate ticket from the one-call centre, updated, answered and completed inside the platform. BUILT in STORY-013 as the locate_tickets table, with responses queued in bluestakes_outbox.",
+      "requirements": [
+        "REQ-039"
       ],
-      "relationships": [{ "type": "belongs to", "to": "work_order", "via": "work_order_id" }]
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "ticket_number",
+          "type": "text",
+          "note": "the one-call centre's number, unique"
+        },
+        {
+          "name": "ticket_type",
+          "type": "text",
+          "note": "normal | emergency"
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "note": "received | in_progress | responded | completed"
+        },
+        {
+          "name": "excavator_name",
+          "type": "text"
+        },
+        {
+          "name": "work_description",
+          "type": "text"
+        },
+        {
+          "name": "dig_address",
+          "type": "text"
+        },
+        {
+          "name": "latitude",
+          "type": "numeric"
+        },
+        {
+          "name": "longitude",
+          "type": "numeric"
+        },
+        {
+          "name": "received_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "due_at",
+          "type": "timestamptz",
+          "note": "when the response is due"
+        },
+        {
+          "name": "locator_notes",
+          "type": "text"
+        },
+        {
+          "name": "marking_details",
+          "type": "text"
+        },
+        {
+          "name": "work_order_id",
+          "type": "uuid",
+          "note": "→ work_order, nullable"
+        },
+        {
+          "name": "response_code",
+          "type": "text",
+          "note": "PLACEHOLDER codes until the official list is known"
+        },
+        {
+          "name": "response_note",
+          "type": "text"
+        },
+        {
+          "name": "responded_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "completed_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "work_order",
+          "via": "work_order_id"
+        }
+      ]
     },
     {
       "name": "workflow",
       "purpose": "A configurable sequence of steps, so existing workflows are kept and new ones can be added.",
-      "requirements": ["REQ-045"],
+      "requirements": [
+        "REQ-045"
+      ],
       "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "name", "type": "text" },
-        { "name": "work_type", "type": "text" },
-        { "name": "is_active", "type": "boolean" }
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "name",
+          "type": "text"
+        },
+        {
+          "name": "work_type",
+          "type": "text"
+        },
+        {
+          "name": "is_active",
+          "type": "boolean"
+        }
       ],
       "relationships": [
-        { "type": "has many", "to": "workflow_step", "via": "workflow_id" },
-        { "type": "has many", "to": "work_order", "via": "workflow_id" }
+        {
+          "type": "has many",
+          "to": "workflow_step",
+          "via": "workflow_id"
+        },
+        {
+          "type": "has many",
+          "to": "work_order",
+          "via": "workflow_id"
+        }
       ]
     },
     {
       "name": "workflow_step",
       "purpose": "One step of a workflow, in order, with who may move a work order past it.",
-      "requirements": ["REQ-045"],
-      "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "workflow_id", "type": "uuid", "note": "→ workflow" },
-        { "name": "position", "type": "integer" },
-        { "name": "status_name", "type": "text" },
-        { "name": "required_role_id", "type": "uuid", "note": "→ role, nullable" }
+      "requirements": [
+        "REQ-045"
       ],
-      "relationships": [{ "type": "belongs to", "to": "workflow", "via": "workflow_id" }]
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "workflow_id",
+          "type": "uuid",
+          "note": "→ workflow"
+        },
+        {
+          "name": "position",
+          "type": "integer"
+        },
+        {
+          "name": "status_name",
+          "type": "text"
+        },
+        {
+          "name": "required_role_id",
+          "type": "uuid",
+          "note": "→ role, nullable"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "workflow",
+          "via": "workflow_id"
+        }
+      ]
     },
     {
       "name": "app_user",
       "purpose": "A person who signs in to the system.",
-      "requirements": ["REQ-047"],
-      "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "email", "type": "text", "note": "unique" },
-        { "name": "display_name", "type": "text" },
-        { "name": "is_active", "type": "boolean" },
-        { "name": "created_at", "type": "timestamptz" }
+      "requirements": [
+        "REQ-047"
       ],
-      "relationships": [{ "type": "many-to-many", "to": "role", "via": "user_role" }]
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "note": "unique"
+        },
+        {
+          "name": "display_name",
+          "type": "text"
+        },
+        {
+          "name": "is_active",
+          "type": "boolean"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "many-to-many",
+          "to": "role",
+          "via": "user_role"
+        }
+      ]
     },
     {
       "name": "role",
       "purpose": "A named set of permissions, managed by system administrators.",
-      "requirements": ["REQ-047"],
-      "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "name", "type": "text", "note": "unique" },
-        { "name": "permissions", "type": "jsonb" }
+      "requirements": [
+        "REQ-047"
       ],
-      "relationships": [{ "type": "many-to-many", "to": "app_user", "via": "user_role" }]
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "note": "unique"
+        },
+        {
+          "name": "permissions",
+          "type": "jsonb"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "many-to-many",
+          "to": "app_user",
+          "via": "user_role"
+        }
+      ]
     },
     {
       "name": "user_role",
       "purpose": "Which users hold which roles.",
-      "requirements": ["REQ-047"],
+      "requirements": [
+        "REQ-047"
+      ],
       "fields": [
-        { "name": "user_id", "type": "uuid", "note": "→ app_user" },
-        { "name": "role_id", "type": "uuid", "note": "→ role" },
-        { "name": "granted_by", "type": "uuid", "note": "→ app_user" },
-        { "name": "granted_at", "type": "timestamptz" }
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "note": "→ app_user"
+        },
+        {
+          "name": "role_id",
+          "type": "uuid",
+          "note": "→ role"
+        },
+        {
+          "name": "granted_by",
+          "type": "uuid",
+          "note": "→ app_user"
+        },
+        {
+          "name": "granted_at",
+          "type": "timestamptz"
+        }
       ],
       "relationships": [
-        { "type": "belongs to", "to": "app_user", "via": "user_id" },
-        { "type": "belongs to", "to": "role", "via": "role_id" }
+        {
+          "type": "belongs to",
+          "to": "app_user",
+          "via": "user_id"
+        },
+        {
+          "type": "belongs to",
+          "to": "role",
+          "via": "role_id"
+        }
       ]
     },
     {
       "name": "audit_entry",
       "purpose": "An append-only record of every change to a work order, user, role or setting.",
-      "requirements": ["REQ-047", "REQ-051"],
-      "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "actor_user_id", "type": "uuid", "note": "→ app_user; null for system actions" },
-        { "name": "entity_type", "type": "text" },
-        { "name": "entity_id", "type": "uuid" },
-        { "name": "action", "type": "text", "note": "create | update | complete | delete" },
-        { "name": "before", "type": "jsonb" },
-        { "name": "after", "type": "jsonb" },
-        { "name": "occurred_at", "type": "timestamptz" }
+      "requirements": [
+        "REQ-047",
+        "REQ-051"
       ],
-      "relationships": [{ "type": "belongs to", "to": "app_user", "via": "actor_user_id" }]
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "note": "→ app_user; null for system actions"
+        },
+        {
+          "name": "entity_type",
+          "type": "text"
+        },
+        {
+          "name": "entity_id",
+          "type": "uuid"
+        },
+        {
+          "name": "action",
+          "type": "text",
+          "note": "create | update | complete | delete"
+        },
+        {
+          "name": "before",
+          "type": "jsonb"
+        },
+        {
+          "name": "after",
+          "type": "jsonb"
+        },
+        {
+          "name": "occurred_at",
+          "type": "timestamptz"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "app_user",
+          "via": "actor_user_id"
+        }
+      ]
     },
     {
       "name": "system_setting",
       "purpose": "A configuration value administrators can change, with who changed it.",
-      "requirements": ["REQ-047"],
-      "fields": [
-        { "name": "key", "type": "text", "note": "primary key" },
-        { "name": "value", "type": "jsonb" },
-        { "name": "updated_by", "type": "uuid", "note": "→ app_user" },
-        { "name": "updated_at", "type": "timestamptz" }
+      "requirements": [
+        "REQ-047"
       ],
-      "relationships": [{ "type": "belongs to", "to": "app_user", "via": "updated_by" }]
+      "fields": [
+        {
+          "name": "key",
+          "type": "text",
+          "note": "primary key"
+        },
+        {
+          "name": "value",
+          "type": "jsonb"
+        },
+        {
+          "name": "updated_by",
+          "type": "uuid",
+          "note": "→ app_user"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "app_user",
+          "via": "updated_by"
+        }
+      ]
     },
     {
       "name": "integration_endpoint",
       "purpose": "One external system this connects to, with the last time its connection was checked.",
-      "requirements": ["REQ-038", "REQ-040", "REQ-054", "REQ-055"],
-      "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "name", "type": "text", "note": "e.g. GIS, locate service, Lama, Sprypoint, Madison AI" },
-        { "name": "direction", "type": "text", "note": "inbound | outbound | both" },
-        { "name": "base_url", "type": "text" },
-        { "name": "status", "type": "text", "note": "connected | not_connected | error" },
-        { "name": "last_checked_at", "type": "timestamptz" },
-        { "name": "last_error", "type": "text" }
+      "requirements": [
+        "REQ-038",
+        "REQ-040",
+        "REQ-054",
+        "REQ-055"
       ],
-      "relationships": [{ "type": "has many", "to": "api_client", "via": "integration_endpoint_id" }]
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "note": "e.g. GIS, locate service, Lama, Sprypoint, Madison AI"
+        },
+        {
+          "name": "direction",
+          "type": "text",
+          "note": "inbound | outbound | both"
+        },
+        {
+          "name": "base_url",
+          "type": "text"
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "note": "connected | not_connected | error"
+        },
+        {
+          "name": "last_checked_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "last_error",
+          "type": "text"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "has many",
+          "to": "api_client",
+          "via": "integration_endpoint_id"
+        }
+      ]
     },
     {
       "name": "api_client",
       "purpose": "A credentialed client allowed to read work order data through the open API, such as a search indexer.",
-      "requirements": ["REQ-040"],
-      "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "integration_endpoint_id", "type": "uuid", "note": "→ integration_endpoint" },
-        { "name": "scopes", "type": "text[]" },
-        { "name": "secret_hash", "type": "text", "note": "hash only, never the secret" },
-        { "name": "revoked_at", "type": "timestamptz" }
+      "requirements": [
+        "REQ-040"
       ],
-      "relationships": [{ "type": "belongs to", "to": "integration_endpoint", "via": "integration_endpoint_id" }]
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "integration_endpoint_id",
+          "type": "uuid",
+          "note": "→ integration_endpoint"
+        },
+        {
+          "name": "scopes",
+          "type": "text[]"
+        },
+        {
+          "name": "secret_hash",
+          "type": "text",
+          "note": "hash only, never the secret"
+        },
+        {
+          "name": "revoked_at",
+          "type": "timestamptz"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "integration_endpoint",
+          "via": "integration_endpoint_id"
+        }
+      ]
     },
     {
       "name": "compliance_response",
       "purpose": "A vendor's stated compliance and technical approach for one requirement.",
-      "requirements": ["REQ-022"],
+      "requirements": [
+        "REQ-022"
+      ],
       "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "requirement_id", "type": "text", "note": "e.g. REQ-023" },
-        { "name": "compliance", "type": "text", "note": "complies | partial | does not comply" },
-        { "name": "technical_approach", "type": "text" },
-        { "name": "submitted_at", "type": "timestamptz" }
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "requirement_id",
+          "type": "text",
+          "note": "e.g. REQ-023"
+        },
+        {
+          "name": "compliance",
+          "type": "text",
+          "note": "complies | partial | does not comply"
+        },
+        {
+          "name": "technical_approach",
+          "type": "text"
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamptz"
+        }
       ],
       "relationships": []
     },
     {
       "name": "readiness_item",
       "purpose": "One configuration, testing or data-conversion task on the way to go-live.",
-      "requirements": ["REQ-052", "REQ-053"],
+      "requirements": [
+        "REQ-052",
+        "REQ-053"
+      ],
       "fields": [
-        { "name": "id", "type": "uuid", "note": "primary key" },
-        { "name": "category", "type": "text", "note": "configuration | testing | data conversion" },
-        { "name": "title", "type": "text" },
-        { "name": "status", "type": "text" },
-        { "name": "due_on", "type": "date" },
-        { "name": "completed_on", "type": "date" }
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "note": "configuration | testing | data conversion"
+        },
+        {
+          "name": "title",
+          "type": "text"
+        },
+        {
+          "name": "status",
+          "type": "text"
+        },
+        {
+          "name": "due_on",
+          "type": "date"
+        },
+        {
+          "name": "completed_on",
+          "type": "date"
+        }
       ],
       "relationships": []
     }

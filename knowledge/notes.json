@@ -98,6 +98,34 @@
       "title": "Madison AI's own requirements are not known yet",
       "body": "The API was proven against our published contract and a simulated crawler. Madison AI's real spec, authentication method and credentials still need to be obtained and checked against it.",
       "evidence": "tests/madisonHttp.test.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "A locate ticket cannot be closed until the one-call centre has its final answer",
+      "body": "Completing a ticket is refused if it has no response, if the response has not been delivered to the one-call centre, or if the last response asked for more time. Completed tickets are locked against further updates and responses.",
+      "evidence": "server/locateTickets.js (completeLocateTicket)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Ticket responses are queued, resent and never delivered twice",
+      "body": "A response is saved, audited and placed in bluestakes_outbox in one transaction, then sent with a timeout and capped retries; every attempt is logged in bluestakes_log. If the centre is down the response stays pending for deliverPendingResponses(). Each response has a response_id so a resend cannot be stored twice.",
+      "evidence": "server/locateTickets.js (respondToLocateTicket, deliverPendingResponses), server/bluestakes.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Changing locate tickets needs its own API permission",
+      "body": "Ticket endpoints need an API key with locate_tickets:write. A read-only key (such as Madison AI's) gets 403, no key gets 401, and every refusal is audited. Each change records the person and the calling system, e.g. 'locator-1 via City app'. Per-person logins arrive with STORY-007.",
+      "evidence": "server/api/clients.js (requireAccess, LOCATE_TICKETS_SCOPE), server/api/server.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "limitation",
+      "title": "Blue Stakes is a stand-in and the response codes are placeholders",
+      "body": "Tickets come from server/bluestakes/stand-in-tickets.json in an assumed format, and the response codes (marked, clear_no_conflict, needs_more_time) are placeholders. Both need replacing with Blue Stakes of Utah's real feed format and official codes once the city has access.",
+      "evidence": "server/locateTickets.js (RESPONSE_CODES), server/bluestakes/stand-in-tickets.json"
     }
   ]
 }
