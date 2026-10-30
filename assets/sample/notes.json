@@ -1,0 +1,7 @@
+{
+  "_sample": "MADE-UP SAMPLE NOTES. Shows the layout of the Knowledge base only.",
+  "entries": [
+    { "date": "2026-10-21", "kind": "decision", "title": "Sample: assets are cached nightly from GIS", "body": "Sample note — an invented decision to show what a filled-in notes list looks like.", "evidence": "sample/gis/sync.ts" },
+    { "date": "2026-10-27", "kind": "limitation", "title": "Sample: photos over 10 MB are rejected", "body": "Sample note — an invented limitation.", "evidence": "sample/upload.ts" }
+  ]
+}

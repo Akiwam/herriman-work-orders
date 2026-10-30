@@ -1,0 +1,41 @@
+{
+  "_sample": "MADE-UP SAMPLE DATA. Shows the layout of the Command Center only. Not this project's progress.",
+  "schema_version": 2,
+  "project": "Sample City Work Orders (made up)",
+  "totals": {
+    "stories_total": 5,
+    "stories_verified": 2,
+    "stories_submitted": 1,
+    "stories_in_progress": 1,
+    "stories_not_started": 1,
+    "criteria_total": 15,
+    "criteria_passed": 8,
+    "points_awarded": 96
+  },
+  "stories": [
+    {
+      "id": "STORY-S01", "release": "r0", "acceptance_total": 3,
+      "criteria": [{ "text": "Sample criterion A", "passed": true }, { "text": "Sample criterion B", "passed": true }, { "text": "Sample criterion C", "passed": true }],
+      "verification": { "state": "verified", "criteria_passed": 3, "criteria_total": 3, "points_awarded": 48, "commit_sha": "0000000", "outstanding": [] }
+    },
+    {
+      "id": "STORY-S02", "release": "r0", "acceptance_total": 3,
+      "criteria": [{ "text": "Sample criterion A", "passed": true }, { "text": "Sample criterion B", "passed": true }, { "text": "Sample criterion C", "passed": true }],
+      "verification": { "state": "verified", "criteria_passed": 3, "criteria_total": 3, "points_awarded": 48, "commit_sha": "0000001", "outstanding": [] }
+    },
+    {
+      "id": "STORY-S03", "release": "r1", "acceptance_total": 3,
+      "criteria": [{ "text": "Sample criterion A", "passed": true }, { "text": "Sample criterion B", "passed": true }, { "text": "Sample criterion C", "passed": false }],
+      "verification": { "state": "submitted", "criteria_passed": 2, "criteria_total": 3, "points_awarded": null, "outstanding": ["Sample criterion C"] }
+    },
+    {
+      "id": "STORY-S04", "release": "r1", "acceptance_total": 3,
+      "criteria": [{ "text": "Sample criterion A", "passed": false }, { "text": "Sample criterion B", "passed": false }, { "text": "Sample criterion C", "passed": false }],
+      "verification": { "state": "in_progress", "criteria_passed": 0, "criteria_total": 3, "points_awarded": null, "outstanding": ["Sample criterion A", "Sample criterion B", "Sample criterion C"] }
+    },
+    {
+      "id": "STORY-S05", "release": "r2", "acceptance_total": 3,
+      "criteria": [{ "text": "Sample criterion A", "passed": false }, { "text": "Sample criterion B", "passed": false }, { "text": "Sample criterion C", "passed": false }]
+    }
+  ]
+}

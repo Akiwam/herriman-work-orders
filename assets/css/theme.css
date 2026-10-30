@@ -1,0 +1,32 @@
+/*
+ * Brand colours live here and nowhere else.
+ * No brand colours have been chosen for this project yet, so this is a neutral palette.
+ * To rebrand, change the values below; components only ever use these variables.
+ */
+:root {
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-text: #1c2430;
+  --color-muted: #5d6777;
+  --color-border: #dce0e6;
+
+  --color-accent: #2f5d8a;
+  --color-accent-soft: #e8eff6;
+  --color-accent-contrast: #ffffff;
+
+  --color-ok: #2e7d4f;
+  --color-error: #b3261e;
+  --color-unknown: #9aa3af;
+
+  --color-warn-bg: #fff3dc;
+  --color-warn-border: #f0c36d;
+  --color-warn-text: #7a4b00;
+
+  --color-sample-bg: #fde6ef;
+  --color-sample-border: #f19bbd;
+  --color-sample-text: #8e1446;
+
+  --radius: 10px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}

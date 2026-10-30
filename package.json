@@ -1,0 +1,10 @@
+{
+  "name": "herriman-command-center",
+  "private": true,
+  "type": "module",
+  "description": "Command Center for the Herriman City Work Order Management build. Static site, no build step.",
+  "scripts": {
+    "test": "node --test",
+    "serve": "python -m http.server 8000"
+  }
+}

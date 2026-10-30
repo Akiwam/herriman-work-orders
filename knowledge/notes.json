@@ -1,0 +1,40 @@
+{
+  "_about": "Your project's own notes and decisions. The Knowledge base tab reads this file at runtime. Add an entry whenever you decide something or learn a limit; the platform never writes this file.",
+  "entries": [
+    {
+      "date": "2026-10-29",
+      "kind": "decision",
+      "title": "plan.json is left exactly as the platform wrote it",
+      "body": "The platform stops refreshing plan.json once it is edited by hand. The published plan has gaps (no requirements, placeholder dates), so instead of patching it, every tab shows an honest empty state and Overview > Plan check lists the gaps. The tabs fill in on their own when the plan is republished.",
+      "evidence": "assets/js/tabs/overview.js (planChecks)"
+    },
+    {
+      "date": "2026-10-29",
+      "kind": "decision",
+      "title": "Static site with hash routes, entry point at the repo root",
+      "body": "index.html sits at the root so GitHub Pages can serve it; every tab and every detail page is its own #/ address. There is no build step. A .nojekyll file makes Pages serve the .colaberry/ folder the page reads.",
+      "evidence": "index.html, assets/js/app.js, .nojekyll"
+    },
+    {
+      "date": "2026-10-29",
+      "kind": "decision",
+      "title": "All data reaches the tabs through one module",
+      "body": "data.js loads plan.json, progress.json and manifest.json (or the sample files) and joins them on story id. Tabs only read that model, so pointing the page at the running system later changes one file.",
+      "evidence": "assets/js/data.js"
+    },
+    {
+      "date": "2026-10-29",
+      "kind": "limitation",
+      "title": "This page cannot check any connection",
+      "body": "A static page cannot reach other systems or hold a secret. Every system status is grey and 'not checked from here' until the running system reports its own connections.",
+      "evidence": "assets/js/data.js (systemStatus), assets/js/tabs/systems.js"
+    },
+    {
+      "date": "2026-10-29",
+      "kind": "limitation",
+      "title": "The chat panel is a lookup, not a language model",
+      "body": "It answers questions about stories, releases, dates, requirements, guardrails, systems, measures, roles, owners and data age from the files on this page, cites the tab, and says so when the files do not hold the answer.",
+      "evidence": "assets/js/chat.js"
+    }
+  ]
+}

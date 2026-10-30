@@ -1,0 +1,85 @@
+{
+  "_sample": "MADE-UP SAMPLE DATA. Shows the layout of the Command Center only. Not this project's plan.",
+  "schema_version": 2,
+  "project_name": "Sample City Work Orders (made up)",
+  "descriptor": "Sample data: an invented work order system used to show what a filled-in Command Center looks like.",
+  "requirements": [
+    { "id": "REQ-S01", "statement": "Sample: staff can create, update and close a work order.", "kind": "FUNC", "priority": "must", "cluster": "Work orders", "fulfilled_by": ["STORY-S01"] },
+    { "id": "REQ-S02", "statement": "Sample: a work order is never closed without a completion note.", "kind": "SAFE", "priority": "must", "cluster": "Work orders", "fulfilled_by": ["STORY-S01"] },
+    { "id": "REQ-S03", "statement": "Sample: assets are picked from the GIS map and fill in the work order.", "kind": "FUNC", "priority": "must", "cluster": "GIS", "fulfilled_by": ["STORY-S02"] },
+    { "id": "REQ-S04", "statement": "Sample: residents can report an issue on a public page.", "kind": "FUNC", "priority": "must", "cluster": "Public reporting", "fulfilled_by": ["STORY-S03"] },
+    { "id": "REQ-S05", "statement": "Sample: median time to close a pothole work order falls below 5 days.", "kind": "NFR", "priority": "should", "cluster": "Outcomes", "fulfilled_by": ["STORY-S05"] },
+    { "id": "REQ-S06", "statement": "Sample: the system connects to the GIS server and the public portal.", "kind": "CONSTRAINT", "priority": "must", "cluster": "Integrations", "fulfilled_by": ["STORY-S04"] }
+  ],
+  "releases": [
+    { "key": "r0", "name": "Sample release 0 · Core work orders", "goal": "", "demo": "", "week_start": 1, "week_end": 1, "story_ids": ["STORY-S01", "STORY-S02"], "starts_on": "2026-10-20", "ends_on": "2026-10-31", "is_demo_target": false },
+    { "key": "r1", "name": "Sample release 1 · Public reporting", "goal": "", "demo": "", "week_start": 2, "week_end": 3, "story_ids": ["STORY-S03", "STORY-S04"], "starts_on": "2026-11-01", "ends_on": "2026-11-14", "is_demo_target": true },
+    { "key": "r2", "name": "Sample release 2 · Measuring outcomes", "goal": "", "demo": "", "week_start": 4, "week_end": 5, "story_ids": ["STORY-S05"], "starts_on": "2026-11-15", "ends_on": "2026-11-30", "is_demo_target": false }
+  ],
+  "stories": [
+    { "id": "STORY-S01", "release": "r0", "title": "Sample: create, update and close work orders", "narrative": "As a field supervisor, I want to create and close work orders, so that crews know what to fix.", "fulfills": ["REQ-S01", "REQ-S02"], "owner_agent": "Field Supervisor", "acceptance": ["Sample criterion A", "Sample criterion B", "Sample criterion C"], "due_on": "2026-10-24", "due_baseline_on": "2026-10-24" },
+    { "id": "STORY-S02", "release": "r0", "title": "Sample: pick assets from the GIS map", "narrative": "As a dispatcher, I want to pick an asset on the map, so that its details fill in automatically.", "fulfills": ["REQ-S03"], "owner_agent": "Dispatcher", "acceptance": ["Sample criterion A", "Sample criterion B", "Sample criterion C"], "due_on": "2026-10-31", "due_baseline_on": "2026-10-28" },
+    { "id": "STORY-S03", "release": "r1", "title": "Sample: public issue reporting page", "narrative": "As a resident, I want to report a broken streetlight, so that the city can fix it.", "fulfills": ["REQ-S04"], "owner_agent": "Resident", "acceptance": ["Sample criterion A", "Sample criterion B", "Sample criterion C"], "due_on": "2026-11-06", "due_baseline_on": "2026-11-06" },
+    { "id": "STORY-S04", "release": "r1", "title": "Sample: connect GIS server and public portal", "narrative": "As an administrator, I want the integrations to report their status, so that I know when one is down.", "fulfills": ["REQ-S06"], "owner_agent": "Administrator", "acceptance": ["Sample criterion A", "Sample criterion B", "Sample criterion C"], "due_on": "2026-11-13", "due_baseline_on": "2026-11-10" },
+    { "id": "STORY-S05", "release": "r2", "title": "Sample: measure time to close", "narrative": "As a public works manager, I want to see time-to-close by type, so that I can tell whether we are improving.", "fulfills": ["REQ-S05"], "owner_agent": "Public Works Manager", "acceptance": ["Sample criterion A", "Sample criterion B", "Sample criterion C"], "due_on": "2026-11-25", "due_baseline_on": "2026-11-25" }
+  ],
+  "agents": [
+    {
+      "id": "AG-S1",
+      "name": "Sample: request triage agent",
+      "purpose": "Sample: reads new public requests and suggests a work type and priority for a dispatcher to confirm.",
+      "trigger_type": "event",
+      "trigger": "A public request is submitted",
+      "inputs": ["request text", "location"],
+      "outputs": ["suggested work type", "suggested priority"],
+      "autonomy_level": "suggest",
+      "approval_gates": ["Dispatcher confirms before a work order is created"],
+      "escalation_rules": ["Anything mentioning gas or injury goes straight to the on-call supervisor"],
+      "skills": ["classify request", "geocode address"],
+      "owns": ["STORY-S03"]
+    }
+  ],
+  "project": {
+    "name": "Sample City Work Orders (made up)",
+    "descriptor": "Sample data: an invented work order system used to show what a filled-in Command Center looks like.",
+    "repo_url": null,
+    "plan_version": 0,
+    "plan_sha256": null
+  },
+  "schedule": {
+    "build_start": "2026-10-20",
+    "build_end": "2026-11-30",
+    "demo_day": "2026-12-07",
+    "build_weeks": 6,
+    "demo_release_key": "r1",
+    "roadmap_release_keys": ["r2"],
+    "prep": [
+      { "key": "PREP-S1", "title": "Sample: record a project introduction", "due_on": "2026-12-01" },
+      { "key": "PREP-S2", "title": "Sample: present at demo day", "due_on": "2026-12-07" }
+    ]
+  },
+  "derived": {
+    "measures": [{ "id": "REQ-S05", "statement": "Sample: median time to close a pothole work order falls below 5 days." }],
+    "guardrails": [{ "id": "REQ-S02", "statement": "Sample: a work order is never closed without a completion note." }],
+    "systems": ["GIS server", "Public portal", "Email gateway"],
+    "roles": ["field supervisor", "dispatcher", "resident", "administrator", "public works manager"],
+    "counts": { "requirements_total": 6, "stories_total": 5, "releases_total": 3, "agents_total": 1, "agents_by_autonomy": { "suggest": 1 } }
+  },
+  "sample_measurements": {
+    "REQ-S05": {
+      "unit": "days",
+      "target": 5,
+      "points": [
+        { "on": "2026-09-01", "value": 9.4 },
+        { "on": "2026-09-15", "value": 8.7 },
+        { "on": "2026-10-01", "value": 7.9 },
+        { "on": "2026-10-15", "value": 7.1 },
+        { "on": "2026-10-29", "value": 6.4 }
+      ]
+    }
+  },
+  "sample_system_status": {
+    "GIS server": { "state": "connected", "checked_at": "2026-10-29T14:05:00Z" },
+    "Public portal": { "state": "error", "checked_at": "2026-10-29T14:05:00Z" }
+  }
+}
