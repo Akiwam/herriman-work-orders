@@ -495,20 +495,32 @@
       "criteria": [
         {
           "text": "Given the system's database, when accessed by Madison AI engines, then it should allow indexing and searching of work order data.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a request from Madison AI, when it queries the API, then it should receive the correct data format.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: Given any data access by Madison AI, when it occurs, then it must be logged in the audit trail.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/api/clients.js",
+        "server/api/workOrderFeed.js",
+        "server/api/openapi.js",
+        "server/api/server.js",
+        "server/api/demo.js",
+        "server/db.js",
+        "package.json",
+        "knowledge/notes.json"
+      ],
+      "tests_added": [
+        "tests/madisonApi.test.js",
+        "tests/madisonHttp.test.js"
+      ],
+      "notes": "Madison AI reaches work order data through an audited, read-only HTTP API (list, changes-since, search, get one) rather than direct database access, as agreed with the student, so every access can be logged. Proven against our published OpenAPI contract and a SIMULATED Madison AI crawler; Madison AI's own spec and credentials are not available yet. Fails closed: no audit entry means no data. Run `npm test` and `npm run demo:api`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",

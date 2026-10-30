@@ -67,6 +67,19 @@ const SCHEMA = `
     duration_ms   INTEGER NOT NULL
   );
 
+  -- Outside systems allowed to read work order data through the API (e.g. Madison AI).
+  -- Only a hash of each key is stored; the key itself is shown once, when the client is created.
+  CREATE TABLE IF NOT EXISTS api_clients (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    key_prefix  TEXT NOT NULL UNIQUE,          -- the non-secret start of the key, used to look it up
+    key_hash    TEXT NOT NULL,                 -- sha256 of the full key
+    scopes      TEXT NOT NULL,                 -- JSON array, e.g. ["work_orders:read"]
+    created_by  TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    revoked_at  TEXT
+  );
+
   -- Append-only: rows are inserted, never updated or deleted.
   CREATE TABLE IF NOT EXISTS audit_entries (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

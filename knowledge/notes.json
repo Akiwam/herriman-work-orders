@@ -70,6 +70,34 @@
       "title": "The GIS credential comes only from the GIS_TOKEN environment variable",
       "body": "It is passed to GIS on every call and never written to the repo, the logs or a commit. A refused credential is not retried, because retrying a bad password does not help and can lock the account.",
       "evidence": "server/gis.js (gisTokenFromEnv, isRetryable)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Madison AI gets an audited API, not direct database access",
+      "body": "REQ-040 allows open database or API compatibility. An API was chosen because direct database reads could not be logged per access, and the Trust criterion requires every Madison AI data access in the audit trail. The API is read-only: list, changes since a time, search and get one.",
+      "evidence": "server/api/server.js, server/api/clients.js (auditedRead)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "No audit entry, no data",
+      "body": "Every API read and its audit entry run in one transaction. If the audit entry cannot be written, the request is refused with 503 and nothing is returned. Refused keys are audited too, without recording the key.",
+      "evidence": "server/api/clients.js (auditedRead, AuditUnavailableError)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "One fixed, versioned data format for outside systems",
+      "body": "Work orders leave the system only through toPublic(), in schema version 1. The OpenAPI contract and the format checker are generated from the same field list, so the published contract cannot drift from the real responses. Internal fields (request_id, sync queues, the audit trail) are never exposed.",
+      "evidence": "server/api/workOrderFeed.js, server/api/openapi.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "limitation",
+      "title": "Madison AI's own requirements are not known yet",
+      "body": "The API was proven against our published contract and a simulated crawler. Madison AI's real spec, authentication method and credentials still need to be obtained and checked against it.",
+      "evidence": "tests/madisonHttp.test.js"
     }
   ]
 }
