@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-002",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-30T04:38:10Z",
+  "sourceCommitSha": "ff982a16c70522c6d16abc292d1a0571f3f93aff",
+  "factProposals": [
+    {
+      "dimension": "integrations",
+      "value": "Two-way GIS sync: work order updates are written to GIS assets, and asset edits in GIS (address, coordinates, name, type, attributes) are pulled into open work orders by polling a numbered change list. Built against a stand-in GIS.",
+      "evidence": "server/gis.js; server/gisInbound.js; tests/gisSync.test.js (AC1, AC2)"
+    },
+    {
+      "dimension": "data",
+      "value": "gis_log records every GIS call attempt with operation, asset, attempt number, outcome (ok, error, timeout, unauthorized), error, start and finish time; gis_cursor records how far through GIS's change list has been processed.",
+      "evidence": "server/db.js; server/gis.js (createGisLogger)"
+    },
+    {
+      "dimension": "security_context",
+      "value": "GIS access needs a credential, read only from the GIS_TOKEN environment variable; it is never logged or committed, and a refused credential is not retried.",
+      "evidence": "server/gis.js (gisTokenFromEnv, isRetryable); tests/gisSync.test.js (unauthorized, credential never appears)"
+    },
+    {
+      "dimension": "actors",
+      "value": "A system actor, gis-sync, appears in the audit trail for changes that came from GIS.",
+      "evidence": "server/gisInbound.js (GIS_ACTOR)"
+    },
+    {
+      "dimension": "exceptions",
+      "value": "GIS changes to an asset are not applied to work orders that are already completed; the skip is reported.",
+      "evidence": "server/gisInbound.js (applyChange); tests/gisSync.test.js (completed work order is left untouched)"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "Whether the city GIS offers a change list or edit tracking to poll, and how its credentials are issued, is not known; the polling interface is an assumption.",
+      "evidence": "server/gis.js (getChangesSince)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Pull GIS changes by polling a numbered change list rather than receiving webhooks.",
+      "rationale": "Needs nothing set up on the city's side, and a saved cursor makes it safe to run repeatedly.",
+      "evidence": "server/gisInbound.js (processGisChanges, gis_cursor)"
+    },
+    {
+      "statement": "GIS owns asset-derived fields; the work order system owns work order fields.",
+      "rationale": "The two sides never write the same field, so no conflict resolution is needed.",
+      "evidence": "server/gisInbound.js (applyChange)"
+    },
+    {
+      "statement": "Apply each GIS change, its audit entries and the cursor advance in one transaction, and stop at the first change that fails.",
+      "rationale": "No change is applied twice or half-applied, and GIS's order of changes is kept.",
+      "evidence": "server/gisInbound.js; tests/gisSync.test.js (rolled back, connection is lost)"
+    },
+    {
+      "statement": "Require a logger to create a GIS client and log one row per attempt.",
+      "rationale": "Makes the Trust criterion structural: no code path can call GIS without being logged.",
+      "evidence": "server/gis.js (createGisClient)"
+    },
+    {
+      "statement": "Do not retry GIS calls refused as unauthorized.",
+      "rationale": "Retrying a bad credential does not help and can lock the account.",
+      "evidence": "server/gis.js (isRetryable); tests/gisSync.test.js"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "processGisChanges() is not run on a schedule yet; it must be called.",
+      "evidence": "server/gisInbound.js"
+    },
+    {
+      "statement": "The stand-in GIS keeps its change list and edits in memory only.",
+      "evidence": "server/gis.js (createStandInGis)"
+    },
+    {
+      "statement": "One failed GIS change blocks later changes until it applies, by design; a permanently failing change would need manual attention.",
+      "evidence": "server/gisInbound.js (processGisChanges)"
+    },
+    {
+      "statement": "The demo reads the stand-in GIS directly to display asset state; those display reads are not GIS interactions of the system and are not logged.",
+      "evidence": "server/demo.js (showGisLink)"
+    },
+    {
+      "statement": "New assets created in GIS, and assets deleted from GIS, are not handled; only edits to assets already linked to work orders are applied.",
+      "evidence": "server/gisInbound.js (applyChange)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/gisSync.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/demo.js (npm run demo, steps 6, 7 and 9)"
+    },
+    {
+      "kind": "commit",
+      "ref": "ff982a16c70522c6d16abc292d1a0571f3f93aff"
+    }
+  ],
+  "measurementEvents": []
+}
