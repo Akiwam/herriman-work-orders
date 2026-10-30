@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-001",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-30T04:20:50Z",
+  "sourceCommitSha": "5525493b8d576b9f8dc65882d9ecd9fe16c6597f",
+  "factProposals": [
+    {
+      "dimension": "integrations",
+      "value": "Work orders read assets from GIS (getAsset) and write each work order's title, type, priority, status and update time back onto the selected assets (linkWorkOrder). Currently against a stand-in GIS, not the city's GIS.",
+      "evidence": "server/gis.js; server/workOrders.js (syncPending)"
+    },
+    {
+      "dimension": "data",
+      "value": "Selecting a GIS asset autofills the work order's work type, address and coordinates, and stores a snapshot of the asset's type, name and attributes on the work order.",
+      "evidence": "server/workOrders.js (createWorkOrder); tests/workOrders.test.js (AC1)"
+    },
+    {
+      "dimension": "data",
+      "value": "Work order, work_order_assets, gis_sync and append-only audit_entries tables exist in SQLite; every create, update and complete writes an audit entry with actor, time and before/after values.",
+      "evidence": "server/db.js; server/workOrders.js"
+    },
+    {
+      "dimension": "approval_points",
+      "value": "A work order cannot be completed without a completion note, and a completed work order can no longer be updated or completed again.",
+      "evidence": "server/workOrders.js (completeWorkOrder, updateWorkOrder); tests/workOrders.test.js"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "The city GIS product, its URL, credentials and asset schema are not known yet; the stand-in assets and their fields are assumptions.",
+      "evidence": "server/gis/stand-in-assets.json"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Use Node.js with its built-in SQLite and test runner, with no external packages.",
+      "rationale": "Nothing to install; runs locally; one language with the Command Center. The database is reached only through server/db.js so it can move to Postgres later.",
+      "evidence": "server/db.js; package.json"
+    },
+    {
+      "statement": "Verify GIS behaviour against a stand-in GIS behind a client interface rather than the city's GIS.",
+      "rationale": "No access or credentials to the city GIS; the student approved the stand-in.",
+      "evidence": "server/gis.js (createStandInGis, createGisClient)"
+    },
+    {
+      "statement": "Save each change and its audit entry in one transaction, and roll the change back if the audit write fails.",
+      "rationale": "The SAFE requirement and the Trust criterion: no work order action may exist without its audit record.",
+      "evidence": "server/db.js (inTransaction); tests/workOrders.test.js (rolled back)"
+    },
+    {
+      "statement": "Push changes to GIS after the database commit through a queued gis_sync row, with timeout and capped retries, instead of inside the transaction.",
+      "rationale": "A slow or failed GIS call must not lose or block the work order; failed pushes stay retryable.",
+      "evidence": "server/workOrders.js (queueSync, syncPending); server/gis.js (withTimeout, withRetry)"
+    },
+    {
+      "statement": "Make create idempotent through an optional caller-supplied request_id.",
+      "rationale": "A double-click or network retry must not create two work orders.",
+      "evidence": "server/workOrders.js (findByRequestId); tests/workOrders.test.js"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "The stand-in GIS keeps writes in memory only; nothing is persisted to a GIS database.",
+      "evidence": "server/gis.js (createStandInGis)"
+    },
+    {
+      "statement": "When a failed GIS push later succeeds, its error message is cleared; the gis_sync row keeps only the attempt count, not a full history of each try.",
+      "evidence": "server/workOrders.js (syncPending)"
+    },
+    {
+      "statement": "Retrying failed GIS pushes is a function call (syncPending); nothing runs it automatically yet.",
+      "evidence": "server/workOrders.js (syncPending)"
+    },
+    {
+      "statement": "There is no HTTP API or user interface yet; work orders are created through module functions, tests and the demo script.",
+      "evidence": "server/demo.js"
+    },
+    {
+      "statement": "Node's built-in SQLite module is marked experimental in Node 22.",
+      "evidence": "server/db.js"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/workOrders.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/demo.js (npm run demo)"
+    },
+    {
+      "kind": "commit",
+      "ref": "5525493b8d576b9f8dc65882d9ecd9fe16c6597f"
+    }
+  ],
+  "measurementEvents": []
+}
