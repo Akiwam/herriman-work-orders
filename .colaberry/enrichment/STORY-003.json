@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-003",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-30T05:30:14Z",
+  "sourceCommitSha": "00b2732b4f31f5cc67d7da1e2c08446cbef50746",
+  "factProposals": [
+    {
+      "dimension": "inputs",
+      "value": "Citizens submit requests on a public page (description, location, category, optional contact); each becomes a service request and a work order created by 'public-portal', and the citizen receives a tracking code.",
+      "evidence": "server/publicRequests.js (submitPublicRequest); server/public/index.html"
+    },
+    {
+      "dimension": "outputs",
+      "value": "The public can see a work order's status and a plain-language dated history (request received, updated, completed) for published work orders, and for their own request by tracking code.",
+      "evidence": "server/publicRequests.js (getPublicView, listPublicWorkOrders); tests/publicHttp.test.js"
+    },
+    {
+      "dimension": "approval_points",
+      "value": "Staff decide whether a work order is shown publicly (publish/unpublish, audited); new citizen requests are private by default.",
+      "evidence": "server/publicRequests.js (publishWorkOrder)"
+    },
+    {
+      "dimension": "security_context",
+      "value": "Every public submission attempt is logged with time, outcome and the connection's IP address in a staff-only log; X-Forwarded-For is trusted only behind a configured proxy; at most 5 accepted reports per address per hour; the page runs under a strict Content-Security-Policy.",
+      "evidence": "server/api/http.js (clientIp); server/publicRequests.js (RATE_LIMIT); server/api/publicRoutes.js (PAGE_SECURITY_HEADERS)"
+    },
+    {
+      "dimension": "data",
+      "value": "service_requests and public_submission_log tables exist, and work orders have an is_public flag. Citizen contact details and IPs are personal data kept out of every public and outside-system response.",
+      "evidence": "server/db.js; tests/publicRequests.test.js (never appear)"
+    },
+    {
+      "dimension": "actors",
+      "value": "Citizens appear as the system actor 'public-portal' on the work orders their reports create.",
+      "evidence": "server/publicRequests.js (PORTAL_ACTOR)"
+    },
+    {
+      "dimension": "constraints",
+      "value": "Logging IP addresses (the Trust criterion) means storing personal data; the page tells citizens this, and IPs are cleared after a retention period.",
+      "evidence": "server/public/index.html (privacy notice); server/publicRequests.js (purgeSubmissionIps)"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "The city's records retention rule for submission IP addresses is not known; 90 days is a placeholder.",
+      "evidence": "server/publicRequests.js (IP_RETENTION_DAYS)"
+    },
+    {
+      "dimension": "assumptions",
+      "value": "The STORY-003 brief says it is the last story in the plan; eight stories (STORY-004 to 010 and 012) remain.",
+      "evidence": ".colaberry/progress.json"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Keep citizen requests private until staff publish them.",
+      "rationale": "Unreviewed public submissions can contain anything; staff control what is shown.",
+      "evidence": "server/publicRequests.js (publishWorkOrder)"
+    },
+    {
+      "statement": "Answer requests for unpublished work orders exactly like missing ones.",
+      "rationale": "Prevents probing for hidden records (the unauthorized-access failure path).",
+      "evidence": "server/publicRequests.js (PublicNotFoundError); tests/publicHttp.test.js"
+    },
+    {
+      "statement": "Log every submission attempt, including invalid, unreadable and rate-limited ones.",
+      "rationale": "The Trust criterion covers all public submissions, not only accepted ones.",
+      "evidence": "server/publicRequests.js (logSubmission, logUnreadableSubmission); server/api/publicRoutes.js"
+    },
+    {
+      "statement": "Take the IP from the connection and trust X-Forwarded-For only behind a configured proxy.",
+      "rationale": "Otherwise any client could write any address and avoid both the log and the rate limit.",
+      "evidence": "server/api/http.js (clientIp); tests/publicHttp.test.js (faked X-Forwarded-For)"
+    },
+    {
+      "statement": "Serve the page from a fixed list of files with a strict Content-Security-Policy, and insert server data only as text.",
+      "rationale": "No other server file can be reached, and a malicious report cannot inject code into the page.",
+      "evidence": "server/api/publicRoutes.js (PAGE_FILES); server/public/app.js; tests/publicPage.test.js"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "If the database is down, a submission cannot be logged or accepted; the citizen gets a 503.",
+      "evidence": "tests/publicHttp.test.js (data not displayed)"
+    },
+    {
+      "statement": "There is no staff screen to publish work orders; publishWorkOrder is called from code.",
+      "evidence": "server/publicRequests.js (publishWorkOrder)"
+    },
+    {
+      "statement": "purgeSubmissionIps() is not run on a schedule.",
+      "evidence": "server/publicRequests.js (purgeSubmissionIps)"
+    },
+    {
+      "statement": "The public site runs only on a local Node server; GitHub Pages cannot host it because it needs the server.",
+      "evidence": "server/public/serve.js"
+    },
+    {
+      "statement": "The rate limit counts accepted reports per address only; shared addresses (e.g. a library) share the limit.",
+      "evidence": "server/publicRequests.js (RATE_LIMIT)"
+    },
+    {
+      "statement": "The database schema is created with CREATE TABLE IF NOT EXISTS; an existing database file would not get new columns such as is_public without a migration.",
+      "evidence": "server/db.js"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/publicRequests.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/publicHttp.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/publicPage.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/public/demo.js (npm run demo:public)"
+    },
+    {
+      "kind": "commit",
+      "ref": "00b2732b4f31f5cc67d7da1e2c08446cbef50746"
+    }
+  ],
+  "measurementEvents": []
+}
