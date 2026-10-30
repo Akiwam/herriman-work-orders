@@ -1,0 +1,45 @@
+{
+  "_about": "STAND-IN GIS DATA. Made-up assets used until the city's real GIS database is connected. Not real Herriman City assets, addresses or coordinates.",
+  "assets": [
+    {
+      "id": "SL-0001",
+      "asset_type": "streetlight",
+      "name": "Stand-in streetlight SL-0001",
+      "address": "Stand-in address: 100 Example Way",
+      "location": { "lat": 40.5141, "lng": -112.0330 },
+      "attributes": { "pole_height_ft": 30, "lamp": "LED", "circuit": "C-12" }
+    },
+    {
+      "id": "SL-0002",
+      "asset_type": "streetlight",
+      "name": "Stand-in streetlight SL-0002",
+      "address": "Stand-in address: 140 Example Way",
+      "location": { "lat": 40.5146, "lng": -112.0322 },
+      "attributes": { "pole_height_ft": 30, "lamp": "LED", "circuit": "C-12" }
+    },
+    {
+      "id": "HY-0101",
+      "asset_type": "hydrant",
+      "name": "Stand-in hydrant HY-0101",
+      "address": "Stand-in address: 220 Sample Ave",
+      "location": { "lat": 40.5120, "lng": -112.0365 },
+      "attributes": { "flow_gpm": 1500, "color_code": "blue" }
+    },
+    {
+      "id": "SD-0201",
+      "asset_type": "storm_drain",
+      "name": "Stand-in storm drain SD-0201",
+      "address": "Stand-in address: 310 Demo Blvd",
+      "location": { "lat": 40.5102, "lng": -112.0298 },
+      "attributes": { "grate": "curb inlet", "outfall": "Stand-in creek" }
+    },
+    {
+      "id": "RD-0301",
+      "asset_type": "road_segment",
+      "name": "Stand-in road segment RD-0301",
+      "address": "Stand-in address: Example Way, 100–300 block",
+      "location": { "lat": 40.5138, "lng": -112.0341 },
+      "attributes": { "surface": "asphalt", "lanes": 2 }
+    }
+  ]
+}

@@ -35,6 +35,20 @@
       "title": "The chat panel is a lookup, not a language model",
       "body": "It answers questions about stories, releases, dates, requirements, guardrails, systems, measures, roles, owners and data age from the files on this page, cites the tab, and says so when the files do not hold the answer.",
       "evidence": "assets/js/chat.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "STORY-001 runs against a stand-in GIS until the city GIS is connected",
+      "body": "There is no access to Herriman's GIS database yet (no URL, account or credentials). Work orders talk to GIS only through createGisClient(), which adds a timeout and capped retries; behind it is a stand-in with made-up assets. A real GIS adapter needs the same two methods (getAsset, linkWorkOrder). STORY-001's GIS criteria were verified against the stand-in, not the city's GIS.",
+      "evidence": "server/gis.js, server/gis/stand-in-assets.json"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Every work order change and its audit entry are saved in one transaction",
+      "body": "Create, update and complete each write their audit entry inside the same database transaction as the change, so a change can never exist without its audit record. If the audit write fails, the change is rolled back. GIS write-back happens after the save and is queued, so a GIS outage never loses a work order.",
+      "evidence": "server/workOrders.js, server/db.js (inTransaction)"
     }
   ]
 }

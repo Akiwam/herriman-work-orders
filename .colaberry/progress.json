@@ -96,20 +96,30 @@
       "criteria": [
         {
           "text": "Given a new work order, when I create it, then it should appear in the system with GIS data.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given an existing work order, when I update it, then the changes should be saved and reflected in the GIS data.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: Given any work order action, when it is performed, then an audit trail entry must be created.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/db.js",
+        "server/workOrders.js",
+        "server/gis.js",
+        "server/gis/stand-in-assets.json",
+        "server/demo.js",
+        "package.json",
+        "knowledge/notes.json"
+      ],
+      "tests_added": [
+        "tests/workOrders.test.js"
+      ],
+      "notes": "Verified against a STAND-IN GIS (server/gis/stand-in-assets.json): no access to the city GIS yet. The real GIS plugs in behind createGisClient() with the same getAsset/linkWorkOrder methods. Create, update and complete each write their audit entry in the same transaction; GIS write-back is queued in gis_sync and retried if GIS is down. Run `npm test` and `npm run demo`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",
