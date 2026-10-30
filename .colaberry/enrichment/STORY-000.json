@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-000",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-30T03:20:41Z",
+  "sourceCommitSha": "d483979ac1064dade17602c410dc6242f2e28963",
+  "factProposals": [
+    {
+      "dimension": "unknowns",
+      "value": "The published plan.json contains no requirements and no measures, guardrails or systems, although the stories reference 18 requirement ids (REQ-001 to REQ-055).",
+      "evidence": "assets/js/tabs/overview.js (planChecks); assets/js/tabs/knowledge.js (traceRows)"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "Every story's current due_on in plan.json is 2026-09-20 and demo day is 2026-09-27, earlier than the baseline dates (2026-10-27 to 2026-11-18); 6 of 11 releases have no stories.",
+      "evidence": "assets/js/tabs/overview.js (planChecks); assets/js/tabs/project.js (slip)"
+    },
+    {
+      "dimension": "actors",
+      "value": "Story owners are written inconsistently in the plan: 'System Administrator' and 'system_administrator' appear as separate owners, as do 'system_user' and 'System'; STORY-000 has no owner.",
+      "evidence": "assets/js/tabs/agents.js (owners)"
+    },
+    {
+      "dimension": "data",
+      "value": "A proposed data model of 17 tables (work_order, asset, work_order_asset, gis_sync_event, service_request, locate_ticket, workflow, workflow_step, app_user, role, user_role, audit_entry, system_setting, integration_endpoint, api_client, compliance_response, readiness_item), each citing the requirement ids that call for it. Proposed only; nothing is created.",
+      "evidence": "knowledge/data-model.json"
+    },
+    {
+      "dimension": "constraints",
+      "value": "The Command Center is a static page served from the repo root; it cannot hold a secret or reach any external system, so connection status cannot be checked from it.",
+      "evidence": "index.html; assets/js/data.js (systemStatus)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Leave .colaberry/plan.json exactly as the platform wrote it and show its gaps as empty states plus a Plan check page.",
+      "rationale": "The platform stops refreshing a hand-edited plan.json, so patching it would block the corrected plan from arriving.",
+      "evidence": "assets/js/tabs/overview.js (planChecks); knowledge/notes.json"
+    },
+    {
+      "statement": "Route every tab and detail page through hash URLs on a single static index.html, with .nojekyll so GitHub Pages serves .colaberry/.",
+      "rationale": "GitHub Pages on a free repo serves the root; no build step is needed and every page has its own address.",
+      "evidence": "index.html; assets/js/app.js; .nojekyll"
+    },
+    {
+      "statement": "Load all data through one module that joins plan and progress on story id; sample data lives in assets/sample/.",
+      "rationale": "Pointing the page at the running system later should change one file, not every tab.",
+      "evidence": "assets/js/data.js"
+    },
+    {
+      "statement": "When plan.json has no agent roster, show story owners labelled as owners rather than as AI agents.",
+      "rationale": "A job title is not an agent; presenting it as one would claim something that does not exist.",
+      "evidence": "assets/js/tabs/agents.js"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "Every system indicator is grey ('not checked from here') in real mode; the page has no way to learn a connection status.",
+      "evidence": "assets/js/tabs/systems.js"
+    },
+    {
+      "statement": "Outcome cards read 'not measured yet' in real mode; no measurement source exists yet.",
+      "evidence": "assets/js/tabs/outcomes.js"
+    },
+    {
+      "statement": "The Knowledge base chat is a keyword lookup over the loaded files, not a language model; it declines questions the files cannot answer.",
+      "evidence": "assets/js/chat.js"
+    },
+    {
+      "statement": "The page only works when served over HTTP (GitHub Pages or a local server); opened from disk, the browser blocks it from reading .colaberry/.",
+      "evidence": "assets/js/app.js (load error state)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/tabs.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/overview.test.js"
+    },
+    {
+      "kind": "commit",
+      "ref": "d483979ac1064dade17602c410dc6242f2e28963"
+    }
+  ],
+  "measurementEvents": []
+}
