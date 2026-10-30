@@ -257,7 +257,7 @@
     },
     {
       "name": "service_request",
-      "purpose": "A request a resident submits on the public reporting page.",
+      "purpose": "A request a resident submits on the public site; each one creates a work order. BUILT in STORY-003 as the service_requests table, with every submission attempt in public_submission_log.",
       "requirements": [
         "REQ-037"
       ],
@@ -268,7 +268,21 @@
           "note": "primary key"
         },
         {
+          "name": "tracking_code",
+          "type": "text",
+          "note": "given to the citizen, unique, e.g. HWO-7K2P9Q"
+        },
+        {
+          "name": "submission_id",
+          "type": "text",
+          "note": "unique; the same submission sent twice makes one request"
+        },
+        {
           "name": "description",
+          "type": "text"
+        },
+        {
+          "name": "category",
           "type": "text"
         },
         {
@@ -286,16 +300,12 @@
         {
           "name": "contact",
           "type": "text",
-          "note": "optional; never shown publicly"
-        },
-        {
-          "name": "status",
-          "type": "text"
+          "note": "optional; never shown publicly or sent to outside systems"
         },
         {
           "name": "work_order_id",
           "type": "uuid",
-          "note": "→ work_order once triaged"
+          "note": "→ work_order"
         },
         {
           "name": "submitted_at",

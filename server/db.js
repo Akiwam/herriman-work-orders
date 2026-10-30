@@ -20,7 +20,35 @@ const SCHEMA = `
     updated_at    TEXT NOT NULL,
     completed_at  TEXT,
     completion_note TEXT,
-    request_id    TEXT UNIQUE           -- caller-supplied; the same create sent twice makes one work order
+    request_id    TEXT UNIQUE,          -- caller-supplied; the same create sent twice makes one work order
+    is_public     INTEGER NOT NULL DEFAULT 0  -- 1 once staff publish it on the public site (STORY-003)
+  );
+
+  -- Requests citizens submit on the public site (STORY-003, REQ-037). Each one creates a work order.
+  CREATE TABLE IF NOT EXISTS service_requests (
+    id            TEXT PRIMARY KEY,
+    tracking_code TEXT NOT NULL UNIQUE,       -- given to the citizen to check on their request
+    submission_id TEXT NOT NULL UNIQUE,       -- the same submission sent twice makes one request
+    description   TEXT NOT NULL,
+    category      TEXT NOT NULL,
+    location_text TEXT NOT NULL,
+    latitude      REAL,
+    longitude     REAL,
+    contact       TEXT,                       -- optional; never shown publicly or sent to outside systems
+    work_order_id TEXT NOT NULL REFERENCES work_orders(id),
+    submitted_at  TEXT NOT NULL
+  );
+
+  -- Every public submission attempt, accepted or not, with its IP address and time (STORY-003 Trust).
+  -- Staff-only: never returned by any public or outside-system endpoint. IPs are personal data and
+  -- are kept for a limited time (see purgeSubmissionIps).
+  CREATE TABLE IF NOT EXISTS public_submission_log (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip_address         TEXT,                  -- NULL once purged after the retention period
+    submitted_at       TEXT NOT NULL,
+    outcome            TEXT NOT NULL,         -- accepted | duplicate | rejected | rate_limited
+    service_request_id TEXT,
+    detail             TEXT
   );
 
   -- The GIS assets selected for a work order, with a snapshot of what GIS said at the time.

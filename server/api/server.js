@@ -13,7 +13,11 @@
 //   POST  /api/v1/locate-tickets/{id}/respond    respond: { actor, code, note? }
 //   POST  /api/v1/locate-tickets/{id}/complete   complete: { actor }
 //
-// Every request is authenticated; refusals are audited. Errors are always JSON.
+// Public site (STORY-003) — no key; see publicRoutes.js:
+//   POST /api/v1/public/requests, GET /api/v1/public/requests/{code},
+//   GET  /api/v1/public/work-orders, GET /api/v1/public/work-orders/{id}
+//
+// Every keyed request is authenticated; refusals are audited. Errors are always JSON.
 
 import { createServer } from 'node:http';
 import {
@@ -25,50 +29,17 @@ import { ValidationError, NotFoundError, ConflictError } from '../workOrders.js'
 import {
   getLocateTicket, updateLocateTicket, respondToLocateTicket, completeLocateTicket, deliveryStatus,
 } from '../locateTickets.js';
+import { send, readJsonBody, isDatabaseUnavailable, clientIp } from './http.js';
+import { RateLimitedError } from '../publicRequests.js';
+import { handlePublic, PUBLIC_BASE, isPagePath, servePage } from './publicRoutes.js';
 
 const BASE = '/api/v1';
-const MAX_BODY_BYTES = 64 * 1024;
 
-function send(res, status, body, headers = {}) {
-  const json = JSON.stringify(body);
-  res.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Content-Length': Buffer.byteLength(json),
-    'Cache-Control': 'no-store',
-    ...headers,
-  });
-  res.end(json);
-}
-
-/** The database itself is unreachable (closed, locked, busy, cannot open) — as opposed to a bug. */
-export function isDatabaseUnavailable(err) {
-  return err?.code === 'ERR_INVALID_STATE' || /SQLITE_(BUSY|LOCKED|CANTOPEN|IOERR)/.test(`${err?.errstr ?? ''} ${err?.message ?? ''}`);
-}
+export { isDatabaseUnavailable };
 
 function bearerKey(req) {
   const match = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization ?? '');
   return match ? match[1] : null;
-}
-
-/** Read a JSON object body, at most 64 KB. Anything else is a ValidationError (400). */
-async function readJsonBody(req) {
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of req) {
-    size += chunk.length;
-    if (size > MAX_BODY_BYTES) throw new ValidationError([`request body must be at most ${MAX_BODY_BYTES} bytes`]);
-    chunks.push(chunk);
-  }
-  const text = Buffer.concat(chunks).toString('utf8').trim();
-  if (!text) return {};
-  let body;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    throw new ValidationError(['request body must be valid JSON']);
-  }
-  if (body === null || typeof body !== 'object' || Array.isArray(body)) throw new ValidationError(['request body must be a JSON object']);
-  return body;
 }
 
 // ---------- work order feed (read-only) ----------
@@ -134,10 +105,18 @@ async function handleTicket(req, res, db, match, { now, bluestakes }) {
  * `bluestakes` is the one-call centre client used to deliver ticket responses (see server/bluestakes.js).
  * Without it, responses are saved and stay pending delivery.
  */
-export function createApiServer(db, { now, bluestakes = null, requestTimeoutMs = 10_000 } = {}) {
+export function createApiServer(db, { now, bluestakes = null, requestTimeoutMs = 10_000, trustProxy = false } = {}) {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     try {
+      if (isPagePath(url.pathname)) {
+        servePage(req, res, url.pathname);
+        return;
+      }
+      if (url.pathname.startsWith(`${PUBLIC_BASE}/`)) {
+        await handlePublic(req, res, db, url, { now, ip: clientIp(req, { trustProxy }) });
+        return;
+      }
       const ticket = TICKET_PATH.exec(url.pathname);
       if (ticket) {
         await handleTicket(req, res, db, ticket, { now, bluestakes });
@@ -160,7 +139,8 @@ export function createApiServer(db, { now, bluestakes = null, requestTimeoutMs =
         () => match.read(db, match.params), now ? { now } : {});
       send(res, 200, body);
     } catch (err) {
-      if (err instanceof ForbiddenError) send(res, 403, { error: 'forbidden', message: err.message });
+      if (err instanceof RateLimitedError) send(res, 429, { error: 'too_many_requests', message: err.message }, { 'Retry-After': String(err.retryAfterSeconds) });
+      else if (err instanceof ForbiddenError) send(res, 403, { error: 'forbidden', message: err.message });
       else if (err instanceof UnauthorizedError) send(res, 401, { error: 'unauthorized', message: err.message }, { 'WWW-Authenticate': 'Bearer' });
       else if (err instanceof ValidationError) send(res, 400, { error: 'invalid_request', message: err.message, problems: err.problems });
       else if (err instanceof NotFoundError) send(res, 404, { error: 'not_found', message: err.message });

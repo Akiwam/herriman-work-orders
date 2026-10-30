@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Report a problem · Herriman City Public Works</title>
+  <link rel="stylesheet" href="/public/styles.css">
+  <script src="/public/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <p class="kicker">Herriman City · Public Works</p>
+      <h1>Report a problem, follow your request</h1>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section aria-labelledby="report-heading" class="card">
+      <h2 id="report-heading">Report a problem</h2>
+      <form id="report-form" novalidate>
+        <label for="description">What is the problem? <span class="req">required</span></label>
+        <textarea id="description" name="description" rows="4" minlength="10" maxlength="2000" required
+          placeholder="For example: the streetlight by the bus stop has been out for a week"></textarea>
+
+        <label for="location_text">Where is it? <span class="req">required</span></label>
+        <input id="location_text" name="location_text" type="text" minlength="3" maxlength="300" required
+          placeholder="Street address, intersection or landmark">
+
+        <label for="category">What kind of problem?</label>
+        <select id="category" name="category">
+          <option value="">Not sure</option>
+          <option value="pothole">Pothole or road damage</option>
+          <option value="streetlight">Streetlight out</option>
+          <option value="graffiti">Graffiti</option>
+          <option value="water_leak">Water leak</option>
+          <option value="storm_drain">Blocked storm drain</option>
+          <option value="sign">Damaged or missing sign</option>
+          <option value="other">Something else</option>
+        </select>
+
+        <label for="contact">How can we reach you? <span class="opt">optional</span></label>
+        <input id="contact" name="contact" type="text" maxlength="200" placeholder="Email or phone" autocomplete="email">
+        <p class="hint">Only used to contact you about this request. It is never shown publicly.</p>
+
+        <button type="submit" id="report-button">Send report</button>
+        <p class="privacy">To prevent abuse we record your IP address and the time of your report. IP addresses are deleted after 90 days.</p>
+      </form>
+      <div id="report-result" role="status" aria-live="polite"></div>
+    </section>
+
+    <section aria-labelledby="track-heading" class="card">
+      <h2 id="track-heading">Check my request</h2>
+      <form id="track-form" class="inline-form">
+        <label for="tracking_code">Tracking code</label>
+        <div class="row">
+          <input id="tracking_code" name="tracking_code" type="text" placeholder="HWO-XXXXXX" maxlength="20" autocomplete="off" spellcheck="false">
+          <button type="submit">Check</button>
+        </div>
+      </form>
+      <div id="track-result" role="status" aria-live="polite"></div>
+    </section>
+
+    <section aria-labelledby="recent-heading" class="card">
+      <h2 id="recent-heading">Recent public work</h2>
+      <div id="recent-list" aria-live="polite"><p class="muted">Loading…</p></div>
+    </section>
+  </main>
+
+  <footer class="wrap muted small">
+    <p>Prototype of the Herriman City work order system. Requests made here go into a test system.</p>
+  </footer>
+
+  <noscript><p class="wrap">This page needs JavaScript to send and check requests.</p></noscript>
+</body>
+</html>

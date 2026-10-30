@@ -191,20 +191,38 @@
       "criteria": [
         {
           "text": "Given a citizen request, when submitted, then it appears in the work order system.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a public work order, when viewed, then it shows current status and history.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: All public submissions are logged with timestamps and IP addresses.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/publicRequests.js",
+        "server/api/publicRoutes.js",
+        "server/api/http.js",
+        "server/api/server.js",
+        "server/public/index.html",
+        "server/public/app.js",
+        "server/public/styles.css",
+        "server/public/serve.js",
+        "server/public/demo.js",
+        "server/db.js",
+        "package.json",
+        "knowledge/notes.json",
+        "knowledge/data-model.json"
+      ],
+      "tests_added": [
+        "tests/publicRequests.test.js",
+        "tests/publicHttp.test.js",
+        "tests/publicPage.test.js"
+      ],
+      "notes": "Public page at /public and endpoints under /api/v1/public. A submission creates a service request and a work order (via STORY-001 createWorkOrder, actor public-portal) and returns a tracking code. Every submission attempt, including unreadable and rate-limited ones, is logged with time and IP in the staff-only public_submission_log; IPs cleared after a PLACEHOLDER 90 days. Work orders are private until staff publish them (publishWorkOrder); there is no staff screen for that yet. Runs locally only (GitHub Pages cannot run the server). Run `npm test`, `npm run demo:public`, `npm run public`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",

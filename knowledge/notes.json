@@ -126,6 +126,41 @@
       "title": "Blue Stakes is a stand-in and the response codes are placeholders",
       "body": "Tickets come from server/bluestakes/stand-in-tickets.json in an assumed format, and the response codes (marked, clear_no_conflict, needs_more_time) are placeholders. Both need replacing with Blue Stakes of Utah's real feed format and official codes once the city has access.",
       "evidence": "server/locateTickets.js (RESPONSE_CODES), server/bluestakes/stand-in-tickets.json"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Citizen requests are private until staff publish them",
+      "body": "Every public submission becomes a work order, but it is not shown to the public until staff publish it (publishWorkOrder, audited). The citizen can always follow their own request with its tracking code. The public view shows status and a plain-language history, never staff names, notes, contact details or IPs.",
+      "evidence": "server/publicRequests.js (publishWorkOrder, getPublicView)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "A hidden work order looks exactly like a missing one",
+      "body": "Asking the public site for an unpublished work order returns the same 404 and message as one that does not exist, so nobody can probe for hidden records.",
+      "evidence": "server/publicRequests.js (PublicNotFoundError); tests/publicHttp.test.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Submission IPs come from the connection and stay in a staff-only log",
+      "body": "The IP is the network connection's own address; X-Forwarded-For is used only when the server is configured to sit behind a trusted proxy. IPs are stored only in public_submission_log, which no public or outside-system endpoint returns. Every attempt is logged, including invalid, unreadable and rate-limited ones.",
+      "evidence": "server/api/http.js (clientIp); server/publicRequests.js; server/api/publicRoutes.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "limitation",
+      "title": "IP retention is a 90-day placeholder",
+      "body": "purgeSubmissionIps() clears IPs older than 90 days but nothing runs it on a schedule, and 90 days is a placeholder until the city's records retention rule is known.",
+      "evidence": "server/publicRequests.js (IP_RETENTION_DAYS, purgeSubmissionIps)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Spam limit on public reports",
+      "body": "One address can have at most 5 accepted reports per hour; the next gets 429 and is logged as rate_limited. The limit is in one place (RATE_LIMIT).",
+      "evidence": "server/publicRequests.js (RATE_LIMIT, RateLimitedError)"
     }
   ]
 }
