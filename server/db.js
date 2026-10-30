@@ -46,6 +46,27 @@ const SCHEMA = `
     completed_at  TEXT
   );
 
+  -- How far through GIS's change list we have processed. Advanced in the same transaction as
+  -- the change it covers, so a crash or lost connection resumes exactly where it stopped.
+  CREATE TABLE IF NOT EXISTS gis_cursor (
+    name       TEXT PRIMARY KEY,
+    value      INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  -- Every call to GIS, one row per attempt (so retries are visible). Append-only.
+  CREATE TABLE IF NOT EXISTS gis_log (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    operation     TEXT NOT NULL,                 -- e.g. getAsset, linkWorkOrder
+    asset_id      TEXT,
+    attempt       INTEGER NOT NULL,
+    outcome       TEXT NOT NULL,                 -- ok | error | timeout | unauthorized
+    error         TEXT,
+    started_at    TEXT NOT NULL,
+    finished_at   TEXT NOT NULL,
+    duration_ms   INTEGER NOT NULL
+  );
+
   -- Append-only: rows are inserted, never updated or deleted.
   CREATE TABLE IF NOT EXISTS audit_entries (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

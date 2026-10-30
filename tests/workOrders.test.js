@@ -7,15 +7,15 @@ import {
   ValidationError, NotFoundError, ConflictError,
 } from '../server/workOrders.js';
 import {
-  createStandInGis, createGisClient, loadStandInAssets, withTimeout, withRetry, GisError,
+  createStandInGis, createGisClient, createGisLogger, loadStandInAssets, withTimeout, withRetry, GisError,
 } from '../server/gis.js';
 
 const count = (db, table) => db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
 
 /** A stand-in GIS wrapped the way production code uses it, with fast retries for tests. */
-function standInGis() {
+function standInGis(db) {
   const backend = createStandInGis(loadStandInAssets());
-  return { backend, gis: createGisClient(backend, { timeoutMs: 200, attempts: 2, delayMs: 1 }) };
+  return { backend, gis: createGisClient(backend, { log: createGisLogger(db), timeoutMs: 200, attempts: 2, delayMs: 1 }) };
 }
 
 function seed(db) {
@@ -58,7 +58,7 @@ test('a work order with missing required data is rejected and nothing is saved',
 
 test('AC1: a new work order with a GIS asset appears with GIS data autofilled', async () => {
   const db = openDatabase();
-  const { gis, backend } = standInGis();
+  const { gis, backend } = standInGis(db);
   const wo = await createWorkOrder(db, { title: 'Light out', asset_ids: ['SL-0001'], created_by: 'user-1' }, { gis });
 
   // autofilled from GIS (REQ-023): work type, address, coordinates, asset snapshot
@@ -89,7 +89,7 @@ test('REQ-032: a freeform location is enough when GIS has no asset for the place
 
 test('selecting an asset that GIS does not have is rejected and nothing is saved', async () => {
   const db = openDatabase();
-  const { gis } = standInGis();
+  const { gis } = standInGis(db);
   await assert.rejects(
     createWorkOrder(db, { title: 'x', asset_ids: ['NOPE-1'], created_by: 'user-1' }, { gis }),
     (err) => err instanceof ValidationError && err.problems.includes('asset NOPE-1 is not in GIS'),
@@ -117,7 +117,7 @@ test('updating a work order saves the change and audits the before and after val
 
 test('AC2: updating a linked work order saves the change and it is reflected in GIS', async () => {
   const db = openDatabase();
-  const { gis, backend } = standInGis();
+  const { gis, backend } = standInGis(db);
   const wo = await createWorkOrder(db, { title: 'Light out', asset_ids: ['SL-0001'], created_by: 'user-1' }, { gis });
   const updated = await updateWorkOrder(db, wo.id, { title: 'Light out — pole damaged', priority: 'high' }, { actor: 'user-2', gis });
 
@@ -163,14 +163,14 @@ test('an update that clears a required field or touches a protected field is rej
 
 test('if GIS fails to update, the work order is still saved, the sync is marked failed, and a retry fixes it', async () => {
   const db = openDatabase();
-  const { backend } = standInGis();
+  const { backend } = standInGis(db);
   let gisDown = true;
   const flaky = {
     kind: 'stand-in',
     getAsset: (id) => backend.getAsset(id),
     linkWorkOrder: (assetId, link) => (gisDown ? Promise.reject(new Error('GIS unavailable')) : backend.linkWorkOrder(assetId, link)),
   };
-  const gis = createGisClient(flaky, { timeoutMs: 200, attempts: 2, delayMs: 1 });
+  const gis = createGisClient(flaky, { log: createGisLogger(db), timeoutMs: 200, attempts: 2, delayMs: 1 });
 
   const wo = await createWorkOrder(db, { title: 'Hydrant leaking', asset_ids: ['HY-0101'], created_by: 'user-1' }, { gis });
   assert.equal(count(db, 'work_orders'), 1, 'the work order is not lost when GIS is down');
@@ -190,7 +190,7 @@ test('if GIS fails to update, the work order is still saved, the sync is marked 
 test('if GIS cannot be reached to look up an asset, creation fails cleanly and nothing is saved', async () => {
   const db = openDatabase();
   const down = { getAsset: () => Promise.reject(new GisError('connection refused')), linkWorkOrder: () => Promise.reject(new GisError('x')) };
-  const gis = createGisClient(down, { timeoutMs: 100, attempts: 2, delayMs: 1 });
+  const gis = createGisClient(down, { log: createGisLogger(db), timeoutMs: 100, attempts: 2, delayMs: 1 });
   await assert.rejects(createWorkOrder(db, { title: 'x', asset_ids: ['SL-0001'], created_by: 'user-1' }, { gis }), GisError);
   assert.equal(count(db, 'work_orders'), 0);
   assert.equal(count(db, 'audit_entries'), 0);
@@ -205,7 +205,7 @@ test('every GIS call has a timeout and a capped number of retries', async () => 
 
 test('pushing the same work order to GIS twice does not create a duplicate link', async () => {
   const db = openDatabase();
-  const { gis, backend } = standInGis();
+  const { gis, backend } = standInGis(db);
   const wo = await createWorkOrder(db, { title: 'Light out', asset_ids: ['SL-0002'], created_by: 'user-1' }, { gis });
   db.prepare("UPDATE gis_sync SET status = 'pending' WHERE work_order_id = ?").run(wo.id); // force a re-push
   await syncPending(db, gis, wo.id);
@@ -216,7 +216,7 @@ test('pushing the same work order to GIS twice does not create a duplicate link'
 
 test('completing a work order records the note and time, audits it, and reflects it in GIS', async () => {
   const db = openDatabase();
-  const { gis, backend } = standInGis();
+  const { gis, backend } = standInGis(db);
   const wo = await createWorkOrder(db, { title: 'Light out', asset_ids: ['SL-0001'], created_by: 'user-1' }, { gis });
   const done = await completeWorkOrder(db, wo.id, { note: 'Replaced LED head', actor: 'crew-7', gis });
 
@@ -250,7 +250,7 @@ test('a work order cannot be completed without a note, or completed twice, or ch
 
 test('sending the same create twice with a request_id makes one work order and one audit entry', async () => {
   const db = openDatabase();
-  const { gis, backend } = standInGis();
+  const { gis, backend } = standInGis(db);
   const input = { request_id: 'req-123', title: 'Light out', asset_ids: ['SL-0002'], created_by: 'user-1' };
   const first = await createWorkOrder(db, input, { gis });
   const second = await createWorkOrder(db, input, { gis });

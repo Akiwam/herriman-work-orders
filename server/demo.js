@@ -4,7 +4,9 @@
 
 import { openDatabase } from './db.js';
 import { createWorkOrder, updateWorkOrder, completeWorkOrder, syncPending } from './workOrders.js';
-import { createStandInGis, createGisClient, loadStandInAssets } from './gis.js';
+import { createStandInGis, createGisClient, createGisLogger, loadStandInAssets } from './gis.js';
+import { processGisChanges } from './gisInbound.js';
+import { getWorkOrder } from './workOrders.js';
 
 const db = openDatabase(':memory:');
 const backend = createStandInGis(loadStandInAssets());
@@ -14,11 +16,12 @@ let gisDown = false;
 const switchable = {
   kind: backend.kind,
   getAsset: (id) => backend.getAsset(id),
+  getChangesSince: (cursor) => backend.getChangesSince(cursor),
   linkWorkOrder: (assetId, link) => (gisDown
     ? Promise.reject(new Error('GIS unavailable (simulated outage)'))
     : backend.linkWorkOrder(assetId, link)),
 };
-const gis = createGisClient(switchable, { timeoutMs: 2000, attempts: 2, delayMs: 50 });
+const gis = createGisClient(switchable, { log: createGisLogger(db), timeoutMs: 2000, attempts: 2, delayMs: 50 });
 
 const line = () => console.log('-'.repeat(72));
 const step = (n, text) => { line(); console.log(`STEP ${n} — ${text}`); line(); };
@@ -92,7 +95,36 @@ const freeform = await createWorkOrder(db, {
 show('location_text', freeform.location_text);
 show('GIS sync', `${freeform.gis_sync}   ← no asset, nothing to sync`);
 
-step(6, 'Audit trail — every action, who did it, and when (AC3)');
+step(6, 'STORY-002 — an edit made in GIS flows into the work order (AC2)');
+const hydrant = await createWorkOrder(db, { title: 'Hydrant leaking', asset_ids: ['HY-0101'], created_by: 'dispatcher.demo' }, { gis });
+show('before: address', hydrant.address);
+show('before: coords', `${hydrant.latitude}, ${hydrant.longitude}`);
+console.log('\n  Someone corrects the hydrant in GIS, and also edits the streetlight from STEP 1 …');
+backend.editAsset('HY-0101', { address: 'Stand-in address: 224 Sample Ave', location: { lat: 40.5123, lng: -112.0361 } });
+backend.editAsset('SL-0001', { address: 'Stand-in address: 101 Example Way' });
+const inbound = await processGisChanges(db, gis);
+const hydrantNow = getWorkOrder(db, hydrant.id);
+show('after: address', `${hydrantNow.address}   ← from GIS`);
+show('after: coords', `${hydrantNow.latitude}, ${hydrantNow.longitude}   ← from GIS`);
+show('title unchanged', hydrantNow.title);
+for (const o of inbound.outcomes) {
+  console.log(`  ${o.asset_id}: work order ${o.work_order_id.slice(0, 8)}… ${o.result}${o.reason ? ` (${o.reason})` : ''}`);
+}
+const rerun = await processGisChanges(db, gis);
+console.log(`  Run it again: ${rerun.outcomes.length} changes applied (nothing twice)`);
+
+step(7, 'STORY-002 — unauthorized access is refused, not retried');
+const secured = createStandInGis(loadStandInAssets(), { requireToken: `demo-${crypto.randomUUID()}` });
+const wrongKey = createGisClient(secured, { log: createGisLogger(db), token: 'not-the-right-credential', attempts: 3, delayMs: 10 });
+try {
+  await wrongKey.getAsset('SL-0001');
+} catch (err) {
+  show('result', `${err.code}: ${err.message}`);
+}
+const unauthorizedRows = db.prepare("SELECT COUNT(*) AS n FROM gis_log WHERE outcome = 'unauthorized'").get().n;
+show('attempts logged', `${unauthorizedRows}   ← one try only; the credential itself is never logged`);
+
+step(8, 'Audit trail — every action, who did it, and when (AC3)');
 const rows = db.prepare('SELECT entity_id, action, actor, occurred_at FROM audit_entries ORDER BY id').all();
 for (const r of rows) {
   console.log(`  ${r.occurred_at}  ${r.action.padEnd(9)} by ${r.actor.padEnd(16)} work order ${r.entity_id.slice(0, 8)}…`);
@@ -100,5 +132,11 @@ for (const r of rows) {
 const syncLog = db.prepare('SELECT asset_id, status, attempts, last_error FROM gis_sync ORDER BY id').all();
 console.log('\n  GIS sync log:');
 for (const s of syncLog) console.log(`  ${s.asset_id}  ${s.status.padEnd(7)} attempts=${s.attempts}${s.last_error ? `  last error: ${s.last_error}` : ''}`);
+
+step(9, 'STORY-002 — every GIS interaction, logged with timestamps (AC3)');
+const gisRows = db.prepare('SELECT * FROM gis_log ORDER BY id').all();
+for (const g of gisRows) {
+  console.log(`  ${g.started_at}  ${g.operation.padEnd(15)} ${String(g.asset_id ?? '—').padEnd(8)} try ${g.attempt}  ${g.outcome.padEnd(12)} ${g.duration_ms} ms${g.error ? `  ${g.error}` : ''}`);
+}
 line();
 console.log('Demo finished. Nothing was written to disk.\n');

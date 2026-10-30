@@ -49,6 +49,27 @@
       "title": "Every work order change and its audit entry are saved in one transaction",
       "body": "Create, update and complete each write their audit entry inside the same database transaction as the change, so a change can never exist without its audit record. If the audit write fails, the change is rolled back. GIS write-back happens after the save and is queued, so a GIS outage never loses a work order.",
       "evidence": "server/workOrders.js, server/db.js (inTransaction)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "GIS changes reach work orders by polling, not webhooks",
+      "body": "processGisChanges() asks GIS for numbered changes after the last one processed and remembers its place in gis_cursor. Polling needs nothing set up on the city's side and is safe to run again; webhooks would need the city GIS to call us. Nothing runs it on a schedule yet.",
+      "evidence": "server/gisInbound.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "GIS owns asset data; the work order system owns work order fields",
+      "body": "A GIS change can update a work order's asset snapshot, address and coordinates, never its title, priority or status. The two sides never write the same field, so there is no conflict to resolve. Completed work orders are not changed by GIS; the skip is reported.",
+      "evidence": "server/gisInbound.js (applyChange)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "The GIS credential comes only from the GIS_TOKEN environment variable",
+      "body": "It is passed to GIS on every call and never written to the repo, the logs or a commit. A refused credential is not retried, because retrying a bad password does not help and can lock the account.",
+      "evidence": "server/gis.js (gisTokenFromEnv, isRetryable)"
     }
   ]
 }

@@ -144,20 +144,29 @@
       "criteria": [
         {
           "text": "Given a work order update, when saved, then the GIS database reflects the changes.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a GIS update, when processed, then the work order reflects the changes.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: All GIS interactions are logged with timestamps.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/gis.js",
+        "server/gisInbound.js",
+        "server/db.js",
+        "server/demo.js",
+        "tests/workOrders.test.js",
+        "knowledge/notes.json"
+      ],
+      "tests_added": [
+        "tests/gisSync.test.js"
+      ],
+      "notes": "Verified against the STAND-IN GIS (no city GIS access yet). Work order -> GIS: queued write-back from STORY-001. GIS -> work order: processGisChanges() polls numbered changes, applies each with its audit entry and cursor in one transaction. Every GIS call goes through createGisClient, which requires a logger and writes one gis_log row per attempt. Credential comes only from GIS_TOKEN; unauthorized is not retried. The demo reads the stand-in directly for display only. Run `npm test` and `npm run demo`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",
