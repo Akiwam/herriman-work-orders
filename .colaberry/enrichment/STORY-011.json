@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-011",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-30T04:52:35Z",
+  "sourceCommitSha": "54820666d3e6b60c40a84689483fc16020f2303d",
+  "factProposals": [
+    {
+      "dimension": "integrations",
+      "value": "Outside indexing and search engines (Madison AI) read work orders through a read-only HTTP API at /api/v1: list with cursor paging, changes since a time, keyword search, and get one. Exercised with a simulated Madison AI crawler.",
+      "evidence": "server/api/server.js; tests/madisonHttp.test.js"
+    },
+    {
+      "dimension": "outputs",
+      "value": "Work order data leaves the system in one versioned JSON format (schema_version 1, 13 fields including location and assets), published as an OpenAPI 3.1 contract at /api/v1/openapi.json.",
+      "evidence": "server/api/workOrderFeed.js (WORK_ORDER_FIELDS, toPublic); server/api/openapi.js"
+    },
+    {
+      "dimension": "security_context",
+      "value": "Each outside system has its own API key with scopes, stored only as a sha256 hash and shown once at creation; keys can be revoked. Every access, allowed or refused, is audited without recording the key.",
+      "evidence": "server/api/clients.js; tests/madisonApi.test.js"
+    },
+    {
+      "dimension": "actors",
+      "value": "Outside systems appear in the audit trail as named API clients (e.g. 'Madison AI'); refused requests without a valid key appear as 'anonymous'.",
+      "evidence": "server/api/clients.js (auditedRead)"
+    },
+    {
+      "dimension": "constraints",
+      "value": "REQ-040 is met through an API rather than direct database access, because direct database reads could not be audited per access as the Trust criterion requires.",
+      "evidence": "server/api/server.js; knowledge/notes.json"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "Madison AI's actual integration spec, authentication method and credentials are not known; compatibility is proven only against the project's own published contract.",
+      "evidence": "tests/madisonHttp.test.js"
+    },
+    {
+      "dimension": "assumptions",
+      "value": "The STORY-011 brief says STORY-009 and STORY-010 are specified before it and should be reused, but both are Release 4 stories with nothing built; nothing from them was reused.",
+      "evidence": ".colaberry/progress.json (STORY-009, STORY-010 criteria all false)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Provide an audited read-only API instead of open database access.",
+      "rationale": "Only an API can record every Madison AI data access in the audit trail and control which fields are exposed.",
+      "evidence": "server/api/server.js"
+    },
+    {
+      "statement": "Refuse the request (503) when its audit entry cannot be written.",
+      "rationale": "The Trust criterion: no data access may happen without an audit entry.",
+      "evidence": "server/api/clients.js (auditedRead); tests/madisonHttp.test.js (audit trail cannot be written)"
+    },
+    {
+      "statement": "Generate the OpenAPI contract and the format checker from one field list.",
+      "rationale": "The published contract and the actual responses cannot drift apart.",
+      "evidence": "server/api/openapi.js; server/api/workOrderFeed.js"
+    },
+    {
+      "statement": "Page with keyset cursors on (time, id) rather than offsets.",
+      "rationale": "A crawl never skips or repeats a work order even while records are added.",
+      "evidence": "server/api/workOrderFeed.js (page); tests/madisonApi.test.js (exactly once)"
+    },
+    {
+      "statement": "Use plain text matching for search because Node's built-in SQLite has no full-text search module.",
+      "rationale": "FTS5 is not available in the bundled SQLite; matching is case-insensitive and treats % and _ literally.",
+      "evidence": "server/api/workOrderFeed.js (searchWorkOrders)"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "Search is substring matching, not ranked full-text search.",
+      "evidence": "server/api/workOrderFeed.js (searchWorkOrders)"
+    },
+    {
+      "statement": "Work orders created in the same millisecond are ordered by id, not by creation order; paging is still complete and without repeats.",
+      "evidence": "server/api/workOrderFeed.js (page)"
+    },
+    {
+      "statement": "There is no script or screen yet for an administrator to create or revoke API clients; it is done through createApiClient and revokeApiClient.",
+      "evidence": "server/api/clients.js"
+    },
+    {
+      "statement": "The API is not deployed anywhere; it runs locally in tests and the demo.",
+      "evidence": "server/api/demo.js"
+    },
+    {
+      "statement": "There is no rate limiting on the API yet.",
+      "evidence": "server/api/server.js"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/madisonApi.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/madisonHttp.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/api/demo.js (npm run demo:api)"
+    },
+    {
+      "kind": "commit",
+      "ref": "54820666d3e6b60c40a84689483fc16020f2303d"
+    }
+  ],
+  "measurementEvents": []
+}
