@@ -1,0 +1,558 @@
+{
+  "schema_version": 2,
+  "project": "",
+  "totals": {
+    "stories_total": 14,
+    "stories_verified": 0,
+    "stories_submitted": 0,
+    "stories_in_progress": 0,
+    "stories_not_started": 14,
+    "criteria_total": 44,
+    "criteria_passed": 0,
+    "points_awarded": 0
+  },
+  "stories": [
+    {
+      "id": "STORY-000",
+      "release": "r0",
+      "acceptance_total": 5,
+      "criteria": [
+        {
+          "text": "Given the Command Center, when it is opened, then every tab is reachable and every card drills down one level.",
+          "passed": false
+        },
+        {
+          "text": "Given sample mode, when any tab is shown, then the sample data is visibly labelled as sample.",
+          "passed": false
+        },
+        {
+          "text": "Given the Command Center, when any tab renders, then .colaberry/plan.json and .colaberry/progress.json are both committed in this repo and every tab reads its content from them at runtime rather than from hard-coded values.",
+          "passed": false
+        },
+        {
+          "text": "Given the Command Center, when any tab is shown, then .colaberry/manifest.json is committed in this repo and every tab shows how old that data is and warns when the age exceeds a week.",
+          "passed": false
+        },
+        {
+          "text": "Trust — no tab shows a number, a connection or a result the project has not actually produced.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 5,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given the Command Center, when it is opened, then every tab is reachable and every card drills down one level.",
+          "Given sample mode, when any tab is shown, then the sample data is visibly labelled as sample.",
+          "Given the Command Center, when any tab renders, then .colaberry/plan.json and .colaberry/progress.json are both committed in this repo and every tab reads its content from them at runtime rather than from hard-coded values.",
+          "Given the Command Center, when any tab is shown, then .colaberry/manifest.json is committed in this repo and every tab shows how old that data is and warns when the age exceeds a week.",
+          "Trust — no tab shows a number, a connection or a result the project has not actually produced."
+        ]
+      }
+    },
+    {
+      "id": "STORY-001",
+      "release": "r0",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a new work order, when I create it, then it should appear in the system with GIS data.",
+          "passed": false
+        },
+        {
+          "text": "Given an existing work order, when I update it, then the changes should be saved and reflected in the GIS data.",
+          "passed": false
+        },
+        {
+          "text": "Trust: Given any work order action, when it is performed, then an audit trail entry must be created.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given a new work order, when I create it, then it should appear in the system with GIS data.",
+          "Given an existing work order, when I update it, then the changes should be saved and reflected in the GIS data.",
+          "Trust: Given any work order action, when it is performed, then an audit trail entry must be created."
+        ]
+      }
+    },
+    {
+      "id": "STORY-002",
+      "release": "r0",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a work order update, when saved, then the GIS database reflects the changes.",
+          "passed": false
+        },
+        {
+          "text": "Given a GIS update, when processed, then the work order reflects the changes.",
+          "passed": false
+        },
+        {
+          "text": "Trust: All GIS interactions are logged with timestamps.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given a work order update, when saved, then the GIS database reflects the changes.",
+          "Given a GIS update, when processed, then the work order reflects the changes.",
+          "Trust: All GIS interactions are logged with timestamps."
+        ]
+      }
+    },
+    {
+      "id": "STORY-003",
+      "release": "r1",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a citizen request, when submitted, then it appears in the work order system.",
+          "passed": false
+        },
+        {
+          "text": "Given a public work order, when viewed, then it shows current status and history.",
+          "passed": false
+        },
+        {
+          "text": "Trust: All public submissions are logged with timestamps and IP addresses.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given a citizen request, when submitted, then it appears in the work order system.",
+          "Given a public work order, when viewed, then it shows current status and history.",
+          "Trust: All public submissions are logged with timestamps and IP addresses."
+        ]
+      }
+    },
+    {
+      "id": "STORY-004",
+      "release": "r1",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given an API request, when received, then the system processes it according to specifications.",
+          "passed": false
+        },
+        {
+          "text": "Given a data update, when via API, then it reflects in the system.",
+          "passed": false
+        },
+        {
+          "text": "Trust: All API interactions are logged with timestamps and request details.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given an API request, when received, then the system processes it according to specifications.",
+          "Given a data update, when via API, then it reflects in the system.",
+          "Trust: All API interactions are logged with timestamps and request details."
+        ]
+      }
+    },
+    {
+      "id": "STORY-005",
+      "release": "r2",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given work order data, when analyzed, then the system generates a heat map.",
+          "passed": false
+        },
+        {
+          "text": "Given a heat map, when viewed, then it accurately reflects work order distribution.",
+          "passed": false
+        },
+        {
+          "text": "Trust: All heat map generations are logged with parameters and timestamps.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given work order data, when analyzed, then the system generates a heat map.",
+          "Given a heat map, when viewed, then it accurately reflects work order distribution.",
+          "Trust: All heat map generations are logged with parameters and timestamps."
+        ]
+      }
+    },
+    {
+      "id": "STORY-006",
+      "release": "r2",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a workflow change, when applied, then the system supports the new workflow.",
+          "passed": false
+        },
+        {
+          "text": "Given an existing workflow, when reviewed, then it operates as expected.",
+          "passed": false
+        },
+        {
+          "text": "Trust: All workflow changes are logged with user IDs and timestamps.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given a workflow change, when applied, then the system supports the new workflow.",
+          "Given an existing workflow, when reviewed, then it operates as expected.",
+          "Trust: All workflow changes are logged with user IDs and timestamps."
+        ]
+      }
+    },
+    {
+      "id": "STORY-007",
+      "release": "r3",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a user role, when assigned, then the user has appropriate access.",
+          "passed": false
+        },
+        {
+          "text": "Given a user action, when performed, then it is logged in the audit trail.",
+          "passed": false
+        },
+        {
+          "text": "Trust: All access changes are logged with user IDs and timestamps.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given a user role, when assigned, then the user has appropriate access.",
+          "Given a user action, when performed, then it is logged in the audit trail.",
+          "Trust: All access changes are logged with user IDs and timestamps."
+        ]
+      }
+    },
+    {
+      "id": "STORY-008",
+      "release": "r3",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a system setting, when configured, then it applies across the system.",
+          "passed": false
+        },
+        {
+          "text": "Given a user account, when managed, then changes reflect immediately.",
+          "passed": false
+        },
+        {
+          "text": "Trust: All configuration changes are logged with user IDs and timestamps.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given a system setting, when configured, then it applies across the system.",
+          "Given a user account, when managed, then changes reflect immediately.",
+          "Trust: All configuration changes are logged with user IDs and timestamps."
+        ]
+      }
+    },
+    {
+      "id": "STORY-009",
+      "release": "r4",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a vendor API, when integrated, then data exchange is seamless.",
+          "passed": false
+        },
+        {
+          "text": "Given a data request, when via API, then it is processed correctly.",
+          "passed": false
+        },
+        {
+          "text": "Trust: All vendor API interactions are logged with timestamps and request details.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given a vendor API, when integrated, then data exchange is seamless.",
+          "Given a data request, when via API, then it is processed correctly.",
+          "Trust: All vendor API interactions are logged with timestamps and request details."
+        ]
+      }
+    },
+    {
+      "id": "STORY-010",
+      "release": "r4",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given system configuration, when assessed, then it meets operational standards.",
+          "passed": false
+        },
+        {
+          "text": "Given a readiness checklist, when completed, then the system is ready for launch.",
+          "passed": false
+        },
+        {
+          "text": "Trust: All readiness assessments are logged with timestamps and reviewer details.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given system configuration, when assessed, then it meets operational standards.",
+          "Given a readiness checklist, when completed, then the system is ready for launch.",
+          "Trust: All readiness assessments are logged with timestamps and reviewer details."
+        ]
+      }
+    },
+    {
+      "id": "STORY-011",
+      "release": "r0",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given the system's database, when accessed by Madison AI engines, then it should allow indexing and searching of work order data.",
+          "passed": false
+        },
+        {
+          "text": "Given a request from Madison AI, when it queries the API, then it should receive the correct data format.",
+          "passed": false
+        },
+        {
+          "text": "Trust: Given any data access by Madison AI, when it occurs, then it must be logged in the audit trail.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given the system's database, when accessed by Madison AI engines, then it should allow indexing and searching of work order data.",
+          "Given a request from Madison AI, when it queries the API, then it should receive the correct data format.",
+          "Trust: Given any data access by Madison AI, when it occurs, then it must be logged in the audit trail."
+        ]
+      }
+    },
+    {
+      "id": "STORY-012",
+      "release": "r1",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a requirement, when a vendor submits compliance documentation, then it should be stored in the system.",
+          "passed": false
+        },
+        {
+          "text": "Given a technical approach, when a vendor submits it, then it should be reviewed and approved.",
+          "passed": false
+        },
+        {
+          "text": "Trust: Given any vendor submission, when it is received, then it must be logged in the audit trail.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given a requirement, when a vendor submits compliance documentation, then it should be stored in the system.",
+          "Given a technical approach, when a vendor submits it, then it should be reviewed and approved.",
+          "Trust: Given any vendor submission, when it is received, then it must be logged in the audit trail."
+        ]
+      }
+    },
+    {
+      "id": "STORY-013",
+      "release": "r0",
+      "acceptance_total": 3,
+      "criteria": [
+        {
+          "text": "Given a Bluestakes data entry, when I update the data, then the system reflects the changes accurately.",
+          "passed": false
+        },
+        {
+          "text": "Given a Bluestakes data entry, when I mark it as complete, then the system updates its status to complete.",
+          "passed": false
+        },
+        {
+          "text": "Trust: Given a Bluestakes data entry update, when the update is made, then the system logs the change in the audit trail.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 3,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given a Bluestakes data entry, when I update the data, then the system reflects the changes accurately.",
+          "Given a Bluestakes data entry, when I mark it as complete, then the system updates its status to complete.",
+          "Trust: Given a Bluestakes data entry update, when the update is made, then the system logs the change in the audit trail."
+        ]
+      }
+    }
+  ]
+}
