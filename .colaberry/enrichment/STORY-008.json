@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-008",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-31T04:04:40Z",
+  "sourceCommitSha": "37f5693897742e2f821d7ba96d0afb68fb52c3f3",
+  "factProposals": [
+    {
+      "dimension": "data",
+      "value": "System settings administrators can change: the public site rate limit per hour, how many days submitters' IP addresses are kept, how many days a vendor submission may wait before it is overdue, and the default heat map cell size. Each has a fixed type, range and default.",
+      "evidence": "server/settings.js (SETTINGS); server/db.js (system_settings)"
+    },
+    {
+      "dimension": "outputs",
+      "value": "A setting change applies across the system on the next request: the public site, IP clean-up, vendor review queue and heat maps all read the current value when they run.",
+      "evidence": "server/publicRequests.js; server/vendorSubmissions.js; server/heatMaps.js; tests/settingsHttp.test.js"
+    },
+    {
+      "dimension": "approval_points",
+      "value": "Only people holding settings:admin (system administrators), acting with their own key, can change settings; only access:admin can edit, deactivate or reactivate users and define roles.",
+      "evidence": "server/api/settingsRoutes.js; server/api/accessRoutes.js; server/api/clients.js (requirePerson)"
+    },
+    {
+      "dimension": "actors",
+      "value": "Besides the built-in roles, the city can define its own roles from the known permissions, for example an inspector role.",
+      "evidence": "server/access.js (createRole, PERMISSIONS); tests/userManagementHttp.test.js"
+    },
+    {
+      "dimension": "data",
+      "value": "Every setting change, user change and role change is in the audit trail with the administrator's user id, the time, and the values before and after.",
+      "evidence": "server/settings.js (changeSetting); server/access.js (updateUser, setUserActive, createRole, updateRole, deleteRole)"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "The city's records retention rule for submitter IP addresses and its rule for when a vendor submission is overdue are still not known; both remain placeholder defaults, now adjustable by administrators.",
+      "evidence": "server/settings.js (public.ip_retention_days, vendor.review_overdue_days)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Define which settings exist, with their types, ranges and defaults, in code, and store only the city's chosen values.",
+      "rationale": "Administrators cannot create a setting the system does not use or enter a value it cannot handle; defaults equal the earlier fixed values, so nothing changed until someone changed it.",
+      "evidence": "server/settings.js (SETTINGS); tests/settings.test.js (defaults)"
+    },
+    {
+      "statement": "Read settings every time they are used instead of caching them.",
+      "rationale": "A change must apply across the system immediately; the reads are small.",
+      "evidence": "server/settings.js (getSetting)"
+    },
+    {
+      "statement": "Fall back to the default when a stored setting is damaged or out of range, and report it.",
+      "rationale": "A bad configuration value must not stop the system working or be used silently.",
+      "evidence": "server/settings.js (effective); tests/settings.test.js (damaged stored value)"
+    },
+    {
+      "statement": "Keep secrets out of settings.",
+      "rationale": "Settings are shown through the API and recorded in the audit trail; vendor integration credentials will need a separate protected store.",
+      "evidence": "server/settings.js (header comment; no secret type)"
+    },
+    {
+      "statement": "Remove a user's key when they are deactivated, and require a new key after reactivation.",
+      "rationale": "Deactivation must take effect on the next request, and an old key must never come back to life.",
+      "evidence": "server/access.js (setUserActive); tests/userManagement.test.js"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "Only four values are settings; others, such as the one-hour rate limit window and upload size limits, are still fixed in code.",
+      "evidence": "server/settings.js (SETTINGS)"
+    },
+    {
+      "statement": "Settings, users and roles are managed through the API; there is no administrator page.",
+      "evidence": "server/api/settingsRoutes.js; server/api/accessRoutes.js"
+    },
+    {
+      "statement": "The six built-in roles cannot be edited by administrators; the city adds its own roles instead.",
+      "evidence": "server/access.js (editableRole)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/settings.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/settingsHttp.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/userManagement.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/userManagementHttp.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/settingsDemo.js (npm run demo:settings)"
+    },
+    {
+      "kind": "commit",
+      "ref": "37f5693897742e2f821d7ba96d0afb68fb52c3f3"
+    }
+  ],
+  "measurementEvents": []
+}
