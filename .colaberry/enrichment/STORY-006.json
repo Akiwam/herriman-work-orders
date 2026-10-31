@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-006",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-31T01:48:41Z",
+  "sourceCommitSha": "d1dfa600fc219b064921ed3e30613ae3eb42beaf",
+  "factProposals": [
+    {
+      "dimension": "outputs",
+      "value": "Versioned workflows per work type: named steps, the steps each may move to, and one final step that completes the work order. Administrators publish and retire them; crews move work orders along them.",
+      "evidence": "server/workflows.js; server/api/workflowRoutes.js; tests/workflowsHttp.test.js"
+    },
+    {
+      "dimension": "data",
+      "value": "The existing behaviour is the built-in Standard workflow (Open, then Completed), used by every work type without its own. Work orders saved before workflows existed were put on Standard at the matching step.",
+      "evidence": "server/db.js (wf-standard-1, addWorkflowColumns); tests/workflows.test.js (saved before workflows existed)"
+    },
+    {
+      "dimension": "data",
+      "value": "Each work order records its workflow version, current step and when it reached that step; status stays open or completed, so the Madison AI feed, public site and heat maps are unchanged.",
+      "evidence": "server/db.js (work_orders.workflow_id, current_step, step_entered_at); tests/workflowsHttp.test.js (published work order format is unchanged)"
+    },
+    {
+      "dimension": "actors",
+      "value": "Workflow administrators use an API client with the workflows:admin scope; crews and outside systems move work orders with work_orders:write. Neither scope grants the other.",
+      "evidence": "server/api/clients.js (WORKFLOWS_ADMIN_SCOPE); tests/workflowsHttp.test.js (without the right scope)"
+    },
+    {
+      "dimension": "data",
+      "value": "Every workflow publish and retire, and every move of a work order between steps, is in the audit trail with the user (as user via system), time, and before and after values.",
+      "evidence": "server/workflows.js (publishWorkflow, retireWorkflow, transitionWorkOrder); server/workflowDemo.js step 7"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "The city's real workflows per work type, and who may move a work order past each step, are not known; the pothole workflow in the tests and demo is made up.",
+      "evidence": "tests/workflows.test.js (pothole); server/workflowDemo.js"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Model today's behaviour as a built-in Standard workflow that applies to every work type without its own.",
+      "rationale": "Existing work keeps working exactly as before, with no migration choices for staff to make.",
+      "evidence": "server/db.js (wf-standard-1); server/workflows.js (workflowForWorkType)"
+    },
+    {
+      "statement": "Publish workflow changes as new versions and keep work orders on the version they started with.",
+      "rationale": "A change can never leave a work order on a step that no longer exists.",
+      "evidence": "server/workflows.js (publishWorkflow); tests/workflows.test.js (stays on its workflow version)"
+    },
+    {
+      "statement": "Refuse any workflow where some work order could never be completed, listing every problem.",
+      "rationale": "Work orders must always be able to finish; one complete list is easier to fix than one problem at a time.",
+      "evidence": "server/workflows.js (validateWorkflow); tests/workflows.test.js (incompatible workflows)"
+    },
+    {
+      "statement": "Keep the final step reachable only by completion, which needs a note.",
+      "rationale": "Keeps the existing rule that no work order is closed without saying what was done.",
+      "evidence": "server/workflows.js (transitionWorkOrder); server/workOrders.js (completeWorkOrder)"
+    },
+    {
+      "statement": "Show step changes on the public site only as \"Progress update\".",
+      "rationale": "Step names are written by administrators and may be internal.",
+      "evidence": "server/publicRequests.js (HISTORY_LABELS); tests/workflowsHttp.test.js (public sees a step change)"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "Per-step role limits are stored but not enforced; any key with work_orders:write can make any allowed move.",
+      "evidence": "server/db.js (workflow_steps.required_role)"
+    },
+    {
+      "statement": "There is no draft stage or administrator page; workflows are published directly through the API.",
+      "evidence": "server/api/workflowRoutes.js"
+    },
+    {
+      "statement": "Refused workflow definitions are in the request log, not the audit trail, because nothing changed.",
+      "evidence": "server/api/workflowRoutes.js; tests/workflowsHttp.test.js (request log)"
+    },
+    {
+      "statement": "Workflow steps are not sent to GIS; GIS still receives only the status.",
+      "evidence": "server/workOrders.js (gisLink)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/workflows.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/workflowsHttp.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/workflowDemo.js (npm run demo:workflows)"
+    },
+    {
+      "kind": "commit",
+      "ref": "d1dfa600fc219b064921ed3e30613ae3eb42beaf"
+    }
+  ],
+  "measurementEvents": []
+}
