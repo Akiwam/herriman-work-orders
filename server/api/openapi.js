@@ -5,6 +5,7 @@ import { WORK_ORDER_FIELDS, SCHEMA_VERSION } from './workOrderFeed.js';
 import { RESPONSE_CODES } from '../locateTickets.js';
 import { BODIES } from './workOrderWrites.js';
 import { SUBMISSION_FIELDS, REVIEW_FIELDS } from './vendorRoutes.js';
+import { FORMATS as HEAT_MAP_FORMATS, STATUSES as HEAT_MAP_STATUSES, CELL_SIZE as HEAT_MAP_CELL } from '../heatMaps.js';
 import { COMPLIANCE_VALUES, REVIEW_DECISIONS, MAX_DOCUMENTS, MAX_DOCUMENT_BYTES } from '../vendorSubmissions.js';
 
 // Vendor request bodies. Field names come from the lists the endpoints enforce; this adds the types.
@@ -203,6 +204,35 @@ export function openApiDocument() {
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, ifMatch],
           requestBody: { required: true, content: { 'application/json': { schema: bodySchema(BODIES.update) } } },
           responses: { ...writeOk(200, 'Changed'), ...changeErrors },
+        },
+      },
+      '/heat-maps': {
+        get: {
+          summary: 'A heat map of work orders per grid cell (needs heatmaps:read; never public)',
+          description: 'Work orders are placed by their own coordinates, or the map pin a citizen gave. Those with neither are counted as unmapped. '
+            + 'Only counts per cell are returned, never individual work orders. Every request is logged with its parameters.',
+          parameters: [
+            { name: 'format', in: 'query', schema: { type: 'string', enum: HEAT_MAP_FORMATS, default: 'geojson' } },
+            { name: 'work_types', in: 'query', schema: { type: 'string' }, description: 'Comma-separated, e.g. pothole,streetlight' },
+            { name: 'from', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Created on or after' },
+            { name: 'to', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Created before' },
+            { name: 'status', in: 'query', schema: { type: 'string', enum: HEAT_MAP_STATUSES, default: 'all' } },
+            { name: 'cell_size_m', in: 'query', schema: { type: 'integer', minimum: HEAT_MAP_CELL.min, maximum: HEAT_MAP_CELL.max, default: HEAT_MAP_CELL.default } },
+          ],
+          responses: {
+            200: {
+              description: 'The heat map',
+              content: {
+                'application/geo+json': { schema: { type: 'object', description: 'FeatureCollection: one square Polygon per cell with count, share and by_type' } },
+                'image/svg+xml': { schema: { type: 'string' } },
+              },
+            },
+            400: { description: 'Invalid parameters' },
+            401: { description: 'Missing or invalid API key' },
+            403: { description: 'The key does not have heatmaps:read' },
+            422: { description: 'Too detailed to draw (use larger cells or narrower filters), or drawing failed' },
+            503: { description: 'Database unavailable; retry later' },
+          },
         },
       },
       '/vendor/requirements': {

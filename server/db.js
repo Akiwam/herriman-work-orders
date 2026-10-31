@@ -215,6 +215,23 @@ const SCHEMA = `
     body_bytes   INTEGER
   );
 
+  -- Every heat map generation attempt, successful or not, with its parameters (STORY-005 Trust).
+  CREATE TABLE IF NOT EXISTS heat_map_log (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    requested_by   TEXT NOT NULL,
+    format         TEXT,
+    params_json    TEXT NOT NULL,             -- the parameters as received (and normalised, when valid)
+    started_at     TEXT NOT NULL,
+    finished_at    TEXT NOT NULL,
+    duration_ms    INTEGER NOT NULL,
+    outcome        TEXT NOT NULL,             -- ok | invalid | failed
+    error          TEXT,
+    total_matching INTEGER,
+    mapped         INTEGER,
+    unmapped       INTEGER,
+    cell_count     INTEGER
+  );
+
   -- Append-only: rows are inserted, never updated or deleted.
   CREATE TABLE IF NOT EXISTS audit_entries (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

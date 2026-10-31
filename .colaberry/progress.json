@@ -304,20 +304,33 @@
       "criteria": [
         {
           "text": "Given work order data, when analyzed, then the system generates a heat map.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a heat map, when viewed, then it accurately reflects work order distribution.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: All heat map generations are logged with parameters and timestamps.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/heatMaps.js",
+        "server/heatMapDemo.js",
+        "server/api/heatMapRoutes.js",
+        "server/api/server.js",
+        "server/api/clients.js",
+        "server/api/openapi.js",
+        "server/db.js",
+        "package.json",
+        "knowledge/notes.json"
+      ],
+      "tests_added": [
+        "tests/heatMaps.test.js",
+        "tests/heatMapHttp.test.js"
+      ],
+      "notes": "Grid heat maps (50 m - 2 km cells) by work type, date and status at GET /api/v1/heat-maps (scope heatmaps:read, never public), as GeoJSON for the city GIS or an SVG image without a street map. Work orders without coordinates (own or citizen pin) are counted as unmapped; cell counts + unmapped always equal the matching total. Every generation attempt (ok, invalid, failed) is in heat_map_log; refused requests are in the audit trail and request log. Run `npm test` and `npm run demo:heatmap`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",

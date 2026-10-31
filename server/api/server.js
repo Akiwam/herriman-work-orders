@@ -38,6 +38,8 @@ import {
 } from './workOrderWrites.js';
 import { getWorkOrder } from '../workOrders.js';
 import { handleVendor, VENDOR_BASE } from './vendorRoutes.js';
+import { handleHeatMap, HEAT_MAP_PATH } from './heatMapRoutes.js';
+import { MapGenerationError } from '../heatMaps.js';
 
 const BASE = '/api/v1';
 
@@ -129,6 +131,10 @@ export function createApiServer(db, { now, bluestakes = null, gis = null, reques
         await handleTicket(req, res, db, ticket, { now, bluestakes });
         return;
       }
+      if (url.pathname === HEAT_MAP_PATH) {
+        handleHeatMap(req, res, db, url, { key: bearerKey(req), now });
+        return;
+      }
       if (url.pathname.startsWith(`${VENDOR_BASE}/`)) {
         await handleVendor(req, res, db, url, { key: bearerKey(req), now });
         return;
@@ -158,6 +164,7 @@ export function createApiServer(db, { now, bluestakes = null, gis = null, reques
     } catch (err) {
       if (err instanceof RateLimitedError) send(res, 429, { error: 'too_many_requests', message: err.message }, { 'Retry-After': String(err.retryAfterSeconds) });
       else if (err instanceof PreconditionRequiredError) send(res, 428, { error: 'precondition_required', message: err.message });
+      else if (err instanceof MapGenerationError) send(res, 422, { error: 'map_generation_error', message: err.message });
       else if (err instanceof ResponseFormatError) {
         console.error('API: response failed the published format check', err);
         send(res, 500, { error: 'response_format_error', message: 'Our response did not match the published format, so it was not sent.' });

@@ -231,6 +231,41 @@
       "title": "The requirements catalog is copied from the brief, and the overdue limit is a placeholder",
       "body": "plan.json has no requirements, so server/vendor/requirements.json holds the 18 from the STORY-000 brief; a test keeps its ids in step with the plan's stories. Reviews waiting over 5 days are flagged overdue — a placeholder until the city sets a review deadline. The portal is API endpoints only; there is no vendor web page yet.",
       "evidence": "server/vendor/requirements.json; server/vendorSubmissions.js (REVIEW_OVERDUE_DAYS)"
+    },
+    {
+      "date": "2026-10-31",
+      "kind": "decision",
+      "title": "Heat maps count unmapped work orders instead of hiding them",
+      "body": "A work order is placed by its own coordinates (from GIS) or the map pin a citizen gave. Work orders with only a freeform location cannot be placed; they are counted as unmapped, and every map says how many. Cell counts plus unmapped always equal the work orders matching the filters. There is no automatic address lookup, which would need an outside geocoding service.",
+      "evidence": "server/heatMaps.js (analyzeWorkOrders)"
+    },
+    {
+      "date": "2026-10-31",
+      "kind": "decision",
+      "title": "One fixed grid; GeoJSON for a street-map view in the city GIS",
+      "body": "Cells are squares on a grid fixed at Herriman's latitude, so maps from different runs line up. The SVG image has no street map (that needs an outside tile service); the GeoJSON output loads into the city's GIS on top of one.",
+      "evidence": "server/heatMaps.js (REFERENCE_LATITUDE, toGeoJSON, toSvg)"
+    },
+    {
+      "date": "2026-10-31",
+      "kind": "decision",
+      "title": "Heat maps are staff-only and contain counts, never individual work orders",
+      "body": "GET /api/v1/heat-maps needs heatmaps:read. A cell holding one work order can point to one citizen's report, so heat maps are never public, and only per-cell counts and type breakdowns are returned.",
+      "evidence": "server/api/heatMapRoutes.js; tests/heatMaps.test.js (only counts)"
+    },
+    {
+      "date": "2026-10-31",
+      "kind": "decision",
+      "title": "Every heat map generation is logged — no log, no map",
+      "body": "heat_map_log gets a row for every generation attempt: ok, invalid (bad parameters) or failed (too detailed, drawing failed, data unreadable), with who, parameters, times and counts. If the row cannot be written, the map is not returned. Maps over 5,000 cells or 250,000 grid squares are refused with advice to use larger cells.",
+      "evidence": "server/heatMaps.js (generateHeatMap, MAX_CELLS, MAX_GRID_SQUARES)"
+    },
+    {
+      "date": "2026-10-31",
+      "kind": "limitation",
+      "title": "Grid heat maps split neighbours at cell edges",
+      "body": "Two work orders a few metres apart can fall either side of a cell boundary and be counted in different cells. This is inherent to a fixed grid; a smoothed (kernel density) map would avoid it but was not needed for REQ-031.",
+      "evidence": "tests/heatMaps.test.js (a larger cell size merges nearby points)"
     }
   ]
 }
