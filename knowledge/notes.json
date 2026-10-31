@@ -196,6 +196,41 @@
       "title": "API specifications still need coordinating with the actual vendors",
       "body": "REQ-054 asks for API specifications and testing to be coordinated with specific vendors. The API and its contract exist and were tested with a simulated system, but no vendor has reviewed or tested against them yet. That is work for people, planned with STORY-009.",
       "evidence": "tests/workOrderWritesHttp.test.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "A vendor submission is confirmed stored before its receipt is sent",
+      "body": "The answer, its documents and its audit entry are saved together, then read back and checked against a SHA-256 fingerprint inside the same transaction. A mismatch rolls everything back and tells the vendor to submit again. The receipt carries the fingerprints as proof of what was received.",
+      "evidence": "server/vendorSubmissions.js (submitCompliance, contentFingerprint)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Every vendor submission received is audited, even if nothing is stored",
+      "body": "Stored submissions are audited as submit; repeats of a submission_key as submit_duplicate; refused ones (invalid data, a disguised file, one already waiting for review) as submit_rejected with the reasons.",
+      "evidence": "server/vendorSubmissions.js (auditReceived)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Documents are accepted for what they are, not what they are called",
+      "body": "Only PDF, Word .docx and plain text, at most 5 per submission and 5 MB each. The first bytes must match the declared type, the file name extension must match, and names are cleaned of paths. Downloads are always sent as attachments under a sandboxing policy, so an uploaded file cannot run as a page.",
+      "evidence": "server/vendorSubmissions.js (DOCUMENT_TYPES, cleanFilename); server/api/vendorRoutes.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Reviewers approve or request changes; vendors are kept apart",
+      "body": "A reviewer cannot review a submission from their own organisation, and requesting changes needs a comment. Vendors see only their own submissions: another vendor's looks exactly like a missing one. Resubmitting after changes requested creates a new revision and keeps the old one.",
+      "evidence": "server/vendorSubmissions.js (reviewSubmission); server/api/vendorRoutes.js (canSee)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "limitation",
+      "title": "The requirements catalog is copied from the brief, and the overdue limit is a placeholder",
+      "body": "plan.json has no requirements, so server/vendor/requirements.json holds the 18 from the STORY-000 brief; a test keeps its ids in step with the plan's stories. Reviews waiting over 5 days are flagged overdue — a placeholder until the city sets a review deadline. The portal is API endpoints only; there is no vendor web page yet.",
+      "evidence": "server/vendor/requirements.json; server/vendorSubmissions.js (REVIEW_OVERDUE_DAYS)"
     }
   ]
 }

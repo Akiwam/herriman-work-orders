@@ -29,6 +29,8 @@ export class ForbiddenError extends UnauthorizedError {
 
 export const LOCATE_TICKETS_SCOPE = 'locate_tickets:write';
 export const WORK_ORDERS_WRITE_SCOPE = 'work_orders:write';
+export const VENDOR_SUBMIT_SCOPE = 'vendor:submit'; // a vendor answering the requirements (STORY-012)
+export const VENDOR_REVIEW_SCOPE = 'vendor:review'; // a city reviewer of vendor submissions
 
 /** The access could not be recorded, so it is refused: no data leaves without an audit entry. */
 export class AuditUnavailableError extends Error {

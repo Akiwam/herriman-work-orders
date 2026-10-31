@@ -4,6 +4,41 @@
 import { WORK_ORDER_FIELDS, SCHEMA_VERSION } from './workOrderFeed.js';
 import { RESPONSE_CODES } from '../locateTickets.js';
 import { BODIES } from './workOrderWrites.js';
+import { SUBMISSION_FIELDS, REVIEW_FIELDS } from './vendorRoutes.js';
+import { COMPLIANCE_VALUES, REVIEW_DECISIONS, MAX_DOCUMENTS, MAX_DOCUMENT_BYTES } from '../vendorSubmissions.js';
+
+// Vendor request bodies. Field names come from the lists the endpoints enforce; this adds the types.
+const VENDOR_FIELD_SCHEMAS = {
+  requirement_id: { type: 'string', example: 'REQ-023', description: 'One of GET /vendor/requirements' },
+  compliance: { type: 'string', enum: COMPLIANCE_VALUES },
+  technical_approach: { type: 'string', minLength: 20, maxLength: 10000 },
+  submission_key: { type: 'string', minLength: 8, maxLength: 100, description: 'Send the same key to retry safely; a repeat returns the first receipt.' },
+  documents: {
+    type: 'array',
+    maxItems: MAX_DOCUMENTS,
+    items: {
+      type: 'object', required: ['filename', 'content_type', 'content_base64'], additionalProperties: false,
+      properties: {
+        filename: { type: 'string' },
+        content_type: { type: 'string', enum: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'] },
+        content_base64: { type: 'string', description: `At most ${MAX_DOCUMENT_BYTES / 1024 / 1024} MB once decoded; the bytes must really be the declared type.` },
+      },
+    },
+  },
+  decision: { type: 'string', enum: REVIEW_DECISIONS },
+  comment: { type: ['string', 'null'], description: 'Required when requesting changes.' },
+};
+const vendorBody = (fields, required) => ({
+  required: true,
+  content: { 'application/json': { schema: { type: 'object', additionalProperties: false, required, properties: Object.fromEntries(fields.map((f) => [f, VENDOR_FIELD_SCHEMAS[f]])) } } },
+});
+const vendorErrors = {
+  400: { description: 'Invalid data, an unknown field, or a document that is not what it claims to be' },
+  401: { description: 'Missing or invalid API key' },
+  403: { description: 'The key does not have the role this endpoint needs (vendor:submit or vendor:review)' },
+  404: { description: 'No such item — or it belongs to another vendor' },
+};
+const vendorId = { name: 'id', in: 'path', required: true, schema: { type: 'string' } };
 
 /** A request body schema straight from the list the endpoint checks against. */
 function bodySchema(spec) {
@@ -168,6 +203,45 @@ export function openApiDocument() {
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, ifMatch],
           requestBody: { required: true, content: { 'application/json': { schema: bodySchema(BODIES.update) } } },
           responses: { ...writeOk(200, 'Changed'), ...changeErrors },
+        },
+      },
+      '/vendor/requirements': {
+        get: { summary: 'The requirements vendors answer (vendor:submit or vendor:review)', responses: { 200: { description: 'OK' }, ...vendorErrors } },
+      },
+      '/vendor/submissions': {
+        post: {
+          summary: 'Submit a compliance answer and technical approach for one requirement (vendor:submit)',
+          requestBody: vendorBody(SUBMISSION_FIELDS, ['requirement_id', 'compliance', 'technical_approach']),
+          responses: {
+            201: { description: 'Stored and confirmed; the receipt includes fingerprints of the submission and each document' },
+            200: { description: 'Repeat of an earlier submission_key' },
+            409: { description: 'An earlier revision is still waiting for review, or already approved' },
+            ...vendorErrors,
+          },
+        },
+      },
+      '/vendor/submissions/{id}': {
+        get: { summary: 'One submission (its vendor, or a reviewer)', parameters: [vendorId], responses: { 200: { description: 'OK' }, ...vendorErrors } },
+      },
+      '/vendor/submissions/{id}/review': {
+        post: {
+          summary: 'Approve or request changes (vendor:review)',
+          parameters: [vendorId],
+          requestBody: vendorBody(REVIEW_FIELDS, ['decision']),
+          responses: { 200: { description: 'Reviewed' }, 409: { description: 'Already reviewed, or the reviewer is the submitting organisation' }, ...vendorErrors },
+        },
+      },
+      '/vendor/summary': {
+        get: { summary: "The calling vendor's status for every requirement (vendor:submit)", responses: { 200: { description: 'OK' }, ...vendorErrors } },
+      },
+      '/vendor/review-queue': {
+        get: { summary: 'Everything waiting for review, oldest first, with overdue flags (vendor:review)', responses: { 200: { description: 'OK' }, ...vendorErrors } },
+      },
+      '/vendor/documents/{id}': {
+        get: {
+          summary: 'Download one document (its vendor, or a reviewer). Always sent as an attachment.',
+          parameters: [vendorId],
+          responses: { 200: { description: 'The exact bytes; X-Content-SHA256 carries their fingerprint' }, ...vendorErrors },
         },
       },
       '/locate-tickets/{id}': {

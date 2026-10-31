@@ -37,6 +37,7 @@ import {
   isWorkOrderWrite, handleWorkOrderWrite, etagFor, PreconditionRequiredError, ResponseFormatError,
 } from './workOrderWrites.js';
 import { getWorkOrder } from '../workOrders.js';
+import { handleVendor, VENDOR_BASE } from './vendorRoutes.js';
 
 const BASE = '/api/v1';
 
@@ -126,6 +127,10 @@ export function createApiServer(db, { now, bluestakes = null, gis = null, reques
       const ticket = TICKET_PATH.exec(url.pathname);
       if (ticket) {
         await handleTicket(req, res, db, ticket, { now, bluestakes });
+        return;
+      }
+      if (url.pathname.startsWith(`${VENDOR_BASE}/`)) {
+        await handleVendor(req, res, db, url, { key: bearerKey(req), now });
         return;
       }
       if (isWorkOrderWrite(req, url.pathname)) {

@@ -25,14 +25,14 @@ export function isDatabaseUnavailable(err) {
  * Read a JSON object body, at most 64 KB. Anything else is a ValidationError (400).
  * Leaves req.bodySummary = { bytes, fields } for the request log: the field NAMES only, never values.
  */
-export async function readJsonBody(req) {
+export async function readJsonBody(req, { maxBytes = MAX_BODY_BYTES } = {}) {
   const chunks = [];
   let size = 0;
   req.bodySummary = { bytes: 0, fields: null };
   for await (const chunk of req) {
     size += chunk.length;
     req.bodySummary.bytes = size;
-    if (size > MAX_BODY_BYTES) throw new ValidationError([`request body must be at most ${MAX_BODY_BYTES} bytes`]);
+    if (size > maxBytes) throw new ValidationError([`request body must be at most ${maxBytes} bytes`]);
     chunks.push(chunk);
   }
   const text = Buffer.concat(chunks).toString('utf8').trim();

@@ -148,6 +148,41 @@ const SCHEMA = `
     duration_ms   INTEGER NOT NULL
   );
 
+  -- A vendor's compliance answer and technical approach for one requirement (STORY-012, REQ-022).
+  -- Each resubmission is a new revision; earlier revisions are kept. Built from the proposed
+  -- compliance_response table in knowledge/data-model.json.
+  CREATE TABLE IF NOT EXISTS vendor_submissions (
+    id                 TEXT PRIMARY KEY,
+    vendor_id          TEXT NOT NULL,             -- the vendor's API client id
+    vendor_name        TEXT NOT NULL,
+    requirement_id     TEXT NOT NULL,             -- e.g. REQ-023, from server/vendor/requirements.json
+    revision           INTEGER NOT NULL,          -- 1, 2, … per vendor and requirement
+    compliance         TEXT NOT NULL,             -- complies | partially_complies | does_not_comply
+    technical_approach TEXT NOT NULL,
+    content_sha256     TEXT NOT NULL,             -- fingerprint of what was submitted
+    submission_key     TEXT,                      -- vendor-supplied; the same key twice stores one submission
+    status             TEXT NOT NULL,             -- submitted | approved | changes_requested
+    submitted_at       TEXT NOT NULL,
+    reviewed_by        TEXT,
+    reviewed_at        TEXT,
+    review_comment     TEXT,
+    UNIQUE (vendor_id, requirement_id, revision),
+    UNIQUE (vendor_id, submission_key)
+  );
+
+  -- Documents attached to a vendor submission (PDF, Word .docx or plain text, at most 5 MB each).
+  -- Saved in the same transaction as the submission, with a fingerprint of the exact bytes.
+  CREATE TABLE IF NOT EXISTS vendor_documents (
+    id            TEXT PRIMARY KEY,
+    submission_id TEXT NOT NULL REFERENCES vendor_submissions(id),
+    filename      TEXT NOT NULL,
+    content_type  TEXT NOT NULL,
+    size_bytes    INTEGER NOT NULL,
+    sha256        TEXT NOT NULL,
+    content       BLOB NOT NULL,
+    uploaded_at   TEXT NOT NULL
+  );
+
   -- Outside systems allowed to read work order data through the API (e.g. Madison AI).
   -- Only a hash of each key is stored; the key itself is shown once, when the client is created.
   CREATE TABLE IF NOT EXISTS api_clients (

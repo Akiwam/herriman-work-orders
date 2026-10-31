@@ -1,0 +1,23 @@
+{
+  "_about": "The requirements vendors respond to (STORY-012, REQ-022). Copied from the requirement list in the STORY-000 brief, because the published plan.json has no requirements yet. tests/vendorSubmissions.test.js checks this list has exactly the requirement ids the plan's stories reference. Replace it with the plan's requirements once the platform republishes them.",
+  "requirements": [
+    { "id": "REQ-001", "kind": "FUNC", "priority": "must", "statement": "The system must provide a work order management system for Herriman City." },
+    { "id": "REQ-002", "kind": "FUNC", "priority": "must", "statement": "The system must be a work order management system." },
+    { "id": "REQ-022", "kind": "NFR", "priority": "must", "statement": "Vendors must indicate compliance and technical approach for each requirement outlined." },
+    { "id": "REQ-023", "kind": "FUNC", "priority": "must", "statement": "The system must support bidirectional GIS integration to select assets and autofill multiple fields into a work order." },
+    { "id": "REQ-026", "kind": "FUNC", "priority": "must", "statement": "The system must actively read from and write to the primary GIS database." },
+    { "id": "REQ-031", "kind": "FUNC", "priority": "must", "statement": "The system must possess spatial analysis capabilities to generate heat maps based on work order types and geographical frequency." },
+    { "id": "REQ-032", "kind": "FUNC", "priority": "must", "statement": "The system must provide an additional freeform location text field for use if specific location information is missing from the GIS database." },
+    { "id": "REQ-037", "kind": "FUNC", "priority": "must", "statement": "The system must provide a public-facing reporting interface allowing citizens to submit requests or view public work order activities." },
+    { "id": "REQ-038", "kind": "CONSTRAINT", "priority": "must", "statement": "The system must natively interface or provide verified API connections to core systems." },
+    { "id": "REQ-039", "kind": "FUNC", "priority": "must", "statement": "The system must provide the ability to update, complete, and respond to Bluestakes data within the platform." },
+    { "id": "REQ-040", "kind": "FUNC", "priority": "must", "statement": "The system must provide fully open database or API compatibility allowing Madison AI engines to index, crawl, and search internal work order data." },
+    { "id": "REQ-045", "kind": "FUNC", "priority": "must", "statement": "The system must comply with existing workflows and accommodate new workflows." },
+    { "id": "REQ-047", "kind": "FUNC", "priority": "must", "statement": "The system must enable system administrators to manage user access, configurations, and audits." },
+    { "id": "REQ-051", "kind": "SAFE", "priority": "must", "statement": "The system must allow for successful creation, updating, and completion of work orders, as evidenced by user testing and demonstration." },
+    { "id": "REQ-052", "kind": "NFR", "priority": "must", "statement": "Time must be allotted for configuring, testing, and data conversion." },
+    { "id": "REQ-053", "kind": "NFR", "priority": "must", "statement": "The software must be operational by July 1, 2027." },
+    { "id": "REQ-054", "kind": "FUNC", "priority": "must", "statement": "API specifications and testing must be coordinated with specific vendors." },
+    { "id": "REQ-055", "kind": "FUNC", "priority": "must", "statement": "The system must provide API interfaces for Lama, Sprypoint, and Madison AI." }
+  ]
+}

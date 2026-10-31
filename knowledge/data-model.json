@@ -257,7 +257,7 @@
     },
     {
       "name": "service_request",
-      "purpose": "A request a resident submits on the public site; each one creates a work order. BUILT in STORY-003 as the service_requests table, with every submission attempt in public_submission_log.",
+      "purpose": "A request a resident submits on the public site; each one creates a work order. BUILT as the service_requests table, with every submission attempt in public_submission_log.",
       "requirements": [
         "REQ-037"
       ],
@@ -322,7 +322,7 @@
     },
     {
       "name": "locate_ticket",
-      "purpose": "A utility locate ticket from the one-call centre, updated, answered and completed inside the platform. BUILT in STORY-013 as the locate_tickets table, with responses queued in bluestakes_outbox.",
+      "purpose": "A utility locate ticket from the one-call centre, updated, answered and completed inside the platform. BUILT as the locate_tickets table, with responses queued in bluestakes_outbox.",
       "requirements": [
         "REQ-039"
       ],
@@ -786,7 +786,7 @@
     },
     {
       "name": "compliance_response",
-      "purpose": "A vendor's stated compliance and technical approach for one requirement.",
+      "purpose": "A vendor's compliance answer and technical approach for one requirement, with review. BUILT as vendor_submissions (one row per revision) and vendor_documents.",
       "requirements": [
         "REQ-022"
       ],
@@ -797,25 +797,68 @@
           "note": "primary key"
         },
         {
+          "name": "vendor_id",
+          "type": "text",
+          "note": "the vendor's API client"
+        },
+        {
+          "name": "vendor_name",
+          "type": "text"
+        },
+        {
           "name": "requirement_id",
           "type": "text",
-          "note": "e.g. REQ-023"
+          "note": "from server/vendor/requirements.json, e.g. REQ-023"
+        },
+        {
+          "name": "revision",
+          "type": "integer",
+          "note": "1, 2, … per vendor and requirement"
         },
         {
           "name": "compliance",
           "type": "text",
-          "note": "complies | partial | does not comply"
+          "note": "complies | partially_complies | does_not_comply"
         },
         {
           "name": "technical_approach",
           "type": "text"
         },
         {
+          "name": "content_sha256",
+          "type": "text",
+          "note": "fingerprint of the answer, approach and every document"
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "note": "submitted | approved | changes_requested"
+        },
+        {
           "name": "submitted_at",
           "type": "timestamptz"
+        },
+        {
+          "name": "reviewed_by",
+          "type": "text"
+        },
+        {
+          "name": "reviewed_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "review_comment",
+          "type": "text",
+          "note": "required when changes are requested"
         }
       ],
-      "relationships": []
+      "relationships": [
+        {
+          "type": "has many",
+          "to": "vendor_document",
+          "via": "submission_id"
+        }
+      ]
     },
     {
       "name": "readiness_item",

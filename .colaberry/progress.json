@@ -582,20 +582,36 @@
       "criteria": [
         {
           "text": "Given a requirement, when a vendor submits compliance documentation, then it should be stored in the system.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a technical approach, when a vendor submits it, then it should be reviewed and approved.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: Given any vendor submission, when it is received, then it must be logged in the audit trail.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/vendorSubmissions.js",
+        "server/vendor/requirements.json",
+        "server/vendor/demo.js",
+        "server/api/vendorRoutes.js",
+        "server/api/http.js",
+        "server/api/clients.js",
+        "server/api/openapi.js",
+        "server/api/server.js",
+        "server/db.js",
+        "package.json",
+        "knowledge/notes.json",
+        "knowledge/data-model.json"
+      ],
+      "tests_added": [
+        "tests/vendorSubmissions.test.js",
+        "tests/vendorHttp.test.js"
+      ],
+      "notes": "Vendor portal as API endpoints under /api/v1/vendor (no web page yet). Submissions with documents are stored with their audit entry, read back and fingerprint-checked inside the transaction before a receipt is returned; every submission received - stored, duplicate or refused - is in the audit trail. Reviewers approve or request changes (comment required, not their own organisation); review queue flags items waiting over a PLACEHOLDER 5 days. Requirements catalog copied from the STORY-000 brief because plan.json has none. Run `npm test` and `npm run demo:vendor`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",
