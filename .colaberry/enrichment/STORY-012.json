@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-012",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-31T01:17:54Z",
+  "sourceCommitSha": "f8d0d74e6a3f4dd35d4febabe87104bff8d3f1ca",
+  "factProposals": [
+    {
+      "dimension": "inputs",
+      "value": "Vendors submit, per requirement, a compliance answer (complies, partially_complies, does_not_comply), a technical approach and up to five PDF, Word or plain-text documents.",
+      "evidence": "server/vendorSubmissions.js (submitCompliance); server/api/vendorRoutes.js"
+    },
+    {
+      "dimension": "approval_points",
+      "value": "A city reviewer approves each vendor submission or requests changes with a comment; a reviewer cannot review their own organisation's submission; an approved requirement accepts no further revisions.",
+      "evidence": "server/vendorSubmissions.js (reviewSubmission); tests/vendorSubmissions.test.js"
+    },
+    {
+      "dimension": "actors",
+      "value": "Vendors (scope vendor:submit) and city reviewers (scope vendor:review) appear as API clients in the audit trail.",
+      "evidence": "server/api/clients.js; tests/vendorHttp.test.js"
+    },
+    {
+      "dimension": "data",
+      "value": "vendor_submissions (one row per revision, with a SHA-256 fingerprint) and vendor_documents (exact bytes plus fingerprint) exist. The 18 requirements vendors answer are held in server/vendor/requirements.json.",
+      "evidence": "server/db.js; server/vendor/requirements.json"
+    },
+    {
+      "dimension": "security_context",
+      "value": "Vendors see only their own submissions and documents; uploaded files must really be the declared type and are only ever downloaded as attachments under a sandboxing policy.",
+      "evidence": "server/api/vendorRoutes.js (canSee, document download); tests/vendorHttp.test.js"
+    },
+    {
+      "dimension": "outputs",
+      "value": "Each vendor gets a compliance status for every requirement (approved, waiting_for_review, changes_requested, not_answered), and reviewers get a queue of waiting submissions with overdue flags.",
+      "evidence": "server/vendorSubmissions.js (vendorComplianceSummary, reviewQueue)"
+    },
+    {
+      "dimension": "assumptions",
+      "value": "The STORY-012 brief says to reuse an existing schema and that it is the last story in the plan; no schema existed (built from the proposed compliance_response table) and six stories (STORY-005 to 010) remain. The published plan has no requirements, so the catalog was copied from the STORY-000 brief.",
+      "evidence": "server/vendor/requirements.json; .colaberry/progress.json"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "The city's review deadline for vendor submissions, and who the reviewers are, are not known; 5 days is a placeholder.",
+      "evidence": "server/vendorSubmissions.js (REVIEW_OVERDUE_DAYS)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Confirm a submission is stored by reading it back and checking its fingerprint inside the transaction before returning a receipt.",
+      "rationale": "A vendor must never be told a submission was received when it was not stored exactly as sent.",
+      "evidence": "server/vendorSubmissions.js; tests/vendorSubmissions.test.js (does not match what was sent)"
+    },
+    {
+      "statement": "Audit every vendor submission received, including repeats and refusals that store nothing.",
+      "rationale": "The Trust criterion covers any submission when it is received, not only stored ones.",
+      "evidence": "server/vendorSubmissions.js (auditReceived); tests/vendorSubmissions.test.js"
+    },
+    {
+      "statement": "Recognise documents by their content, not their name, and serve them only as downloads.",
+      "rationale": "Prevents disguised executables and stops an uploaded file running in a browser.",
+      "evidence": "server/vendorSubmissions.js (DOCUMENT_TYPES); server/api/vendorRoutes.js"
+    },
+    {
+      "statement": "Keep a requirements catalog file, checked by a test against the plan's stories, rather than editing plan.json.",
+      "rationale": "The published plan has no requirements, and editing plan.json would stop the platform refreshing it.",
+      "evidence": "server/vendor/requirements.json; tests/vendorSubmissions.test.js (catalog)"
+    },
+    {
+      "statement": "Show another vendor's submission as not found.",
+      "rationale": "Vendors competing for the same contract must not be able to see or probe each other's answers.",
+      "evidence": "server/api/vendorRoutes.js (canSee)"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "The portal is API endpoints only; there is no web page for vendors or reviewers yet.",
+      "evidence": "server/api/vendorRoutes.js"
+    },
+    {
+      "statement": "Documents are stored in the database; there is no virus scanning.",
+      "evidence": "server/db.js (vendor_documents)"
+    },
+    {
+      "statement": "Reviewer and vendor identities are API clients, not individual people; per-person logins come with STORY-007.",
+      "evidence": "server/api/clients.js"
+    },
+    {
+      "statement": "Nothing notifies a vendor when a review is made, or a reviewer when an item becomes overdue.",
+      "evidence": "server/vendorSubmissions.js (reviewQueue)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/vendorSubmissions.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/vendorHttp.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/vendor/demo.js (npm run demo:vendor)"
+    },
+    {
+      "kind": "commit",
+      "ref": "f8d0d74e6a3f4dd35d4febabe87104bff8d3f1ca"
+    }
+  ],
+  "measurementEvents": []
+}
