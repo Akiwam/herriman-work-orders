@@ -67,10 +67,10 @@ function applyChange(db, change, at, audit) {
                 attributes_json = :attributes_json WHERE work_order_id = :wo AND asset_id = :asset`)
       .run({ ...snapshot, wo: before.id, asset: change.asset_id });
     if (locationChanged) {
-      db.prepare('UPDATE work_orders SET address = :address, latitude = :latitude, longitude = :longitude, updated_at = :at WHERE id = :id')
+      db.prepare('UPDATE work_orders SET address = :address, latitude = :latitude, longitude = :longitude, updated_at = :at, version = version + 1 WHERE id = :id')
         .run({ ...location, at, id: before.id });
     } else {
-      db.prepare('UPDATE work_orders SET updated_at = ? WHERE id = ?').run(at, before.id);
+      db.prepare('UPDATE work_orders SET updated_at = ?, version = version + 1 WHERE id = ?').run(at, before.id);
     }
 
     const after = getWorkOrder(db, before.id);

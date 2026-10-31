@@ -5,6 +5,7 @@ import { ValidationError } from '../workOrders.js';
 const MAX_BODY_BYTES = 64 * 1024;
 
 export function send(res, status, body, headers = {}) {
+  if (status >= 400 && typeof body?.error === 'string') res.errorCode = body.error; // for the request log
   const json = JSON.stringify(body);
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -20,17 +21,25 @@ export function isDatabaseUnavailable(err) {
   return err?.code === 'ERR_INVALID_STATE' || /SQLITE_(BUSY|LOCKED|CANTOPEN|IOERR)/.test(`${err?.errstr ?? ''} ${err?.message ?? ''}`);
 }
 
-/** Read a JSON object body, at most 64 KB. Anything else is a ValidationError (400). */
+/**
+ * Read a JSON object body, at most 64 KB. Anything else is a ValidationError (400).
+ * Leaves req.bodySummary = { bytes, fields } for the request log: the field NAMES only, never values.
+ */
 export async function readJsonBody(req) {
   const chunks = [];
   let size = 0;
+  req.bodySummary = { bytes: 0, fields: null };
   for await (const chunk of req) {
     size += chunk.length;
+    req.bodySummary.bytes = size;
     if (size > MAX_BODY_BYTES) throw new ValidationError([`request body must be at most ${MAX_BODY_BYTES} bytes`]);
     chunks.push(chunk);
   }
   const text = Buffer.concat(chunks).toString('utf8').trim();
-  if (!text) return {};
+  if (!text) {
+    req.bodySummary.fields = [];
+    return {};
+  }
   let body;
   try {
     body = JSON.parse(text);
@@ -38,6 +47,7 @@ export async function readJsonBody(req) {
     throw new ValidationError(['request body must be valid JSON']);
   }
   if (body === null || typeof body !== 'object' || Array.isArray(body)) throw new ValidationError(['request body must be a JSON object']);
+  req.bodySummary.fields = Object.keys(body);
   return body;
 }
 

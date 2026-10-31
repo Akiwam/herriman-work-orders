@@ -8,6 +8,7 @@
     "serve": "python -m http.server 8000",
     "demo": "node --no-warnings server/demo.js",
     "demo:api": "node --no-warnings server/api/demo.js",
+    "demo:external": "node --no-warnings server/api/externalDemo.js",
     "demo:tickets": "node --no-warnings server/bluestakes/demo.js",
     "demo:public": "node --no-warnings server/public/demo.js",
     "public": "node --no-warnings server/public/serve.js"

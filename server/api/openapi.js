@@ -3,6 +3,41 @@
 
 import { WORK_ORDER_FIELDS, SCHEMA_VERSION } from './workOrderFeed.js';
 import { RESPONSE_CODES } from '../locateTickets.js';
+import { BODIES } from './workOrderWrites.js';
+
+/** A request body schema straight from the list the endpoint checks against. */
+function bodySchema(spec) {
+  const properties = {};
+  const required = [];
+  for (const [field, type] of Object.entries(spec)) {
+    const optional = type.endsWith('?');
+    const base = optional ? type.slice(0, -1) : type;
+    properties[field] = base === 'array' ? { type: 'array', items: { type: 'string' } } : { type: base };
+    if (!optional) required.push(field);
+  }
+  properties.actor.description = 'The person or process acting; recorded in the audit trail with the calling system.';
+  return { type: 'object', additionalProperties: false, required, properties };
+}
+
+const etagHeader = { ETag: { description: 'The work order version, e.g. "v3". Send it back as If-Match to change the work order.', schema: { type: 'string' } } };
+const ifMatch = { name: 'If-Match', in: 'header', required: true, schema: { type: 'string', example: '"v3"' }, description: 'The ETag from your last read. Refused with 412 if the work order has changed since.' };
+const idempotencyKey = { name: 'Idempotency-Key', in: 'header', required: false, schema: { type: 'string', maxLength: 200 }, description: 'Send the same key to retry safely: a repeat returns the first work order (200, Idempotent-Replayed: true).' };
+const writeOk = (status, description) => ({
+  [status]: { description, headers: etagHeader, content: { 'application/json': { schema: { $ref: '#/components/schemas/WorkOrderWriteResult' } } } },
+});
+const writeErrors = {
+  400: { description: 'The body or headers break the contract, or a work order rule (e.g. a location is required)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+  401: { description: 'Missing or invalid API key', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+  403: { description: 'Valid key, but it does not have work_orders:write', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+  503: { description: 'Database or audit trail unavailable; retry later', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+};
+const changeErrors = {
+  ...writeErrors,
+  404: { description: 'No such work order' },
+  409: { description: 'Not allowed in its current state (e.g. already completed)' },
+  412: { description: 'The work order changed since you read it. The body has the current work order; its ETag is in the header.', headers: etagHeader },
+  428: { description: 'If-Match was not sent' },
+};
 
 function jsonType(spec) {
   const optional = spec.endsWith('?');
@@ -89,6 +124,20 @@ export function openApiDocument() {
     paths: {
       '/work-orders': {
         get: { summary: 'Every work order, oldest first, a page at a time', parameters: [limit, cursor], responses: ok({ $ref: '#/components/schemas/WorkOrderPage' }) },
+        post: {
+          summary: 'Create a work order (needs work_orders:write)',
+          parameters: [idempotencyKey],
+          requestBody: { required: true, content: { 'application/json': { schema: bodySchema(BODIES.create) } } },
+          responses: { ...writeOk(201, 'Created'), ...writeOk(200, 'Repeat of an earlier request with the same Idempotency-Key'), ...writeErrors },
+        },
+      },
+      '/work-orders/{id}/complete': {
+        post: {
+          summary: 'Complete a work order (needs work_orders:write)',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, ifMatch],
+          requestBody: { required: true, content: { 'application/json': { schema: bodySchema(BODIES.complete) } } },
+          responses: { ...writeOk(200, 'Completed'), ...changeErrors },
+        },
       },
       '/work-orders/changes': {
         get: {
@@ -108,7 +157,17 @@ export function openApiDocument() {
         get: {
           summary: 'One work order',
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-          responses: { ...ok({ $ref: '#/components/schemas/SingleWorkOrder' }), 404: { description: 'No such work order' } },
+          responses: {
+            200: { description: 'OK', headers: etagHeader, content: { 'application/json': { schema: { $ref: '#/components/schemas/SingleWorkOrder' } } } },
+            ...errors,
+            404: { description: 'No such work order' },
+          },
+        },
+        patch: {
+          summary: 'Change a work order (needs work_orders:write)',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, ifMatch],
+          requestBody: { required: true, content: { 'application/json': { schema: bodySchema(BODIES.update) } } },
+          responses: { ...writeOk(200, 'Changed'), ...changeErrors },
         },
       },
       '/locate-tickets/{id}': {
@@ -155,6 +214,14 @@ export function openApiDocument() {
         Asset: asset,
         WorkOrderPage: page(nextCursor),
         SearchResult: page({ query: { type: 'string' } }),
+        WorkOrderWriteResult: {
+          type: 'object', required: ['schema_version', 'item'],
+          properties: {
+            schema_version: { const: SCHEMA_VERSION },
+            item: { $ref: '#/components/schemas/WorkOrder' },
+            meta: { type: 'object', properties: { gis_sync: { type: 'string', enum: ['none', 'pending', 'synced'] } } },
+          },
+        },
         SingleWorkOrder: {
           type: 'object', required: ['schema_version', 'item'],
           properties: { schema_version: { const: SCHEMA_VERSION }, item: { $ref: '#/components/schemas/WorkOrder' } },

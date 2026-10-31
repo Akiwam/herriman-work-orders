@@ -29,6 +29,30 @@ export class ConflictError extends Error {
   }
 }
 
+/**
+ * The caller's copy of the work order is out of date: someone else changed it since the caller read it.
+ * Nothing was changed. currentVersion tells the caller what to re-read.
+ */
+export class VersionConflictError extends ConflictError {
+  constructor(expectedVersion, currentVersion) {
+    super(`The work order has changed since you read it (you had version ${expectedVersion}, it is now version ${currentVersion}). Read it again and retry.`);
+    this.name = 'VersionConflictError';
+    this.expectedVersion = expectedVersion;
+    this.currentVersion = currentVersion;
+  }
+}
+
+/** expectedVersion is optional; when given it must be a whole number of 1 or more. */
+function checkVersionArgument(expectedVersion) {
+  if (expectedVersion !== undefined && !(Number.isInteger(expectedVersion) && expectedVersion >= 1)) {
+    throw new ValidationError(['expected version must be a whole number of 1 or more']);
+  }
+}
+
+function assertVersion(row, expectedVersion) {
+  if (expectedVersion !== undefined && row.version !== expectedVersion) throw new VersionConflictError(expectedVersion, row.version);
+}
+
 export class ValidationError extends Error {
   constructor(problems) {
     super(`Work order is missing required data: ${problems.join('; ')}`);
@@ -245,14 +269,16 @@ function cleanChanges(changes) {
  *
  * `audit` is only replaceable so tests can prove that rollback.
  */
-export async function updateWorkOrder(db, id, changes, { actor, gis = null, now = defaultNow, audit = writeAudit } = {}) {
+export async function updateWorkOrder(db, id, changes, { actor, gis = null, now = defaultNow, audit = writeAudit, expectedVersion } = {}) {
   if (isBlank(actor)) throw new ValidationError(['actor is required']);
+  checkVersionArgument(expectedVersion);
   const clean = cleanChanges(changes);
 
   const result = inTransaction(db, () => {
     const before = getWorkOrder(db, id);
     if (!before) throw new NotFoundError(id);
     if (before.status === 'completed') throw new ConflictError('A completed work order cannot be changed.');
+    assertVersion(before, expectedVersion);
 
     const changed = Object.keys(clean).filter((f) => clean[f] !== before[f]);
     if (changed.length === 0) return { changed: false }; // nothing changed: nothing to save, audit or sync
@@ -262,7 +288,7 @@ export async function updateWorkOrder(db, id, changes, { actor, gis = null, now 
       throw new ValidationError(['a location is required: select a GIS asset or enter a location']);
     }
     const sets = changed.map((f) => `${f} = :${f}`).join(', ');
-    db.prepare(`UPDATE work_orders SET ${sets}, updated_at = :updated_at WHERE id = :id`)
+    db.prepare(`UPDATE work_orders SET ${sets}, updated_at = :updated_at, version = version + 1 WHERE id = :id`)
       .run({ ...Object.fromEntries(changed.map((f) => [f, clean[f]])), updated_at: at, id });
 
     const after = getWorkOrder(db, id);
@@ -283,19 +309,21 @@ export async function updateWorkOrder(db, id, changes, { actor, gis = null, now 
  * closed without saying what was done. Audited and pushed to GIS like any other change.
  * Completing an already-completed work order is refused (ConflictError) rather than repeated.
  */
-export async function completeWorkOrder(db, id, { note, actor, gis = null, now = defaultNow } = {}) {
+export async function completeWorkOrder(db, id, { note, actor, gis = null, now = defaultNow, expectedVersion } = {}) {
   const problems = [];
   if (isBlank(actor)) problems.push('actor is required');
   if (isBlank(note)) problems.push('a completion note is required');
   if (problems.length) throw new ValidationError(problems);
+  checkVersionArgument(expectedVersion);
 
   inTransaction(db, () => {
     const before = getWorkOrder(db, id);
     if (!before) throw new NotFoundError(id);
     if (before.status === 'completed') throw new ConflictError('This work order is already completed.');
+    assertVersion(before, expectedVersion);
 
     const at = now();
-    db.prepare(`UPDATE work_orders SET status = 'completed', completed_at = ?, completion_note = ?, updated_at = ? WHERE id = ?`)
+    db.prepare(`UPDATE work_orders SET status = 'completed', completed_at = ?, completion_note = ?, updated_at = ?, version = version + 1 WHERE id = ?`)
       .run(at, note.trim(), at, id);
     const after = getWorkOrder(db, id);
     queueSync(db, id, getAssets(db, id).map((a) => a.asset_id), at);

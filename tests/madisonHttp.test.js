@@ -111,7 +111,10 @@ test('bad parameters, unknown ids, unknown paths and writes get clear JSON error
   assert.equal((await get('/work-orders/does-not-exist')).status, 404);
   assert.equal((await get('/nothing-here')).status, 404);
   const post = await fetch(`${base}/work-orders`, { method: 'POST', headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(5000) });
-  assert.equal(post.status, 405, 'the API is read-only');
+  // Since STORY-004 the API accepts work order writes — but only with work_orders:write. Madison AI's key is read-only.
+  assert.equal(post.status, 403, "Madison AI's read-only key cannot write");
+  const del = await fetch(`${base}/work-orders`, { method: 'DELETE', headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(5000) });
+  assert.equal(del.status, 405, 'methods the API does not offer at all are still refused');
 });
 
 test('the OpenAPI contract is published and matches the fields the feed returns', async (t) => {

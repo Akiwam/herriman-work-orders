@@ -161,6 +161,41 @@
       "title": "Spam limit on public reports",
       "body": "One address can have at most 5 accepted reports per hour; the next gets 429 and is logged as rate_limited. The limit is in one place (RATE_LIMIT).",
       "evidence": "server/publicRequests.js (RATE_LIMIT, RateLimitedError)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Outside systems change work orders with ETag / If-Match versioning",
+      "body": "Every work order has a version that goes up on every change. Outside systems get it as an ETag and must send it back as If-Match to update or complete: a stale version gets 412 with the current work order, a missing one gets 428. This stops a system overwriting a change it has not seen. The version is a header, so Madison AI's published format (schema_version 1) did not change.",
+      "evidence": "server/workOrders.js (VersionConflictError); server/api/workOrderWrites.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Safe retries with an Idempotency-Key, scoped to each system",
+      "body": "A create sent again with the same Idempotency-Key returns the first work order (200, Idempotent-Replayed: true). Keys are combined with the calling system's id, so two systems can never collide on the same key.",
+      "evidence": "server/api/workOrderWrites.js (handleWorkOrderWrite)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Every API request is logged; bodies as field names only",
+      "body": "api_request_log gets one row for every request to the server, whatever the endpoint or outcome: times, method, path, query, client, IP, status, error code, and the body's field names and size. Body values and API keys are never stored, because bodies can carry personal data. Each response carries an X-Request-Id to quote when reporting a problem.",
+      "evidence": "server/api/requestLog.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "The published contract and the request checks come from one list",
+      "body": "The write endpoints check bodies against BODIES, and the OpenAPI request bodies are generated from the same object, so the specification an outside system reads is exactly what the API enforces. Responses are checked against the published format before they are sent.",
+      "evidence": "server/api/workOrderWrites.js (BODIES); server/api/openapi.js (bodySchema)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "limitation",
+      "title": "API specifications still need coordinating with the actual vendors",
+      "body": "REQ-054 asks for API specifications and testing to be coordinated with specific vendors. The API and its contract exist and were tested with a simulated system, but no vendor has reviewed or tested against them yet. That is work for people, planned with STORY-009.",
+      "evidence": "tests/workOrderWritesHttp.test.js"
     }
   ]
 }

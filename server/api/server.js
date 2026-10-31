@@ -32,6 +32,11 @@ import {
 import { send, readJsonBody, isDatabaseUnavailable, clientIp } from './http.js';
 import { RateLimitedError } from '../publicRequests.js';
 import { handlePublic, PUBLIC_BASE, isPagePath, servePage } from './publicRoutes.js';
+import { startRequestLog } from './requestLog.js';
+import {
+  isWorkOrderWrite, handleWorkOrderWrite, etagFor, PreconditionRequiredError, ResponseFormatError,
+} from './workOrderWrites.js';
+import { getWorkOrder } from '../workOrders.js';
 
 const BASE = '/api/v1';
 
@@ -105,9 +110,10 @@ async function handleTicket(req, res, db, match, { now, bluestakes }) {
  * `bluestakes` is the one-call centre client used to deliver ticket responses (see server/bluestakes.js).
  * Without it, responses are saved and stay pending delivery.
  */
-export function createApiServer(db, { now, bluestakes = null, requestTimeoutMs = 10_000, trustProxy = false } = {}) {
+export function createApiServer(db, { now, bluestakes = null, gis = null, requestTimeoutMs = 10_000, trustProxy = false } = {}) {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
+    startRequestLog(db, req, res, url, { ip: clientIp(req, { trustProxy }), ...(now ? { now } : {}) });
     try {
       if (isPagePath(url.pathname)) {
         servePage(req, res, url.pathname);
@@ -122,8 +128,12 @@ export function createApiServer(db, { now, bluestakes = null, requestTimeoutMs =
         await handleTicket(req, res, db, ticket, { now, bluestakes });
         return;
       }
+      if (isWorkOrderWrite(req, url.pathname)) {
+        await handleWorkOrderWrite(req, res, db, url.pathname, { key: bearerKey(req), gis, now });
+        return;
+      }
       if (req.method !== 'GET') {
-        send(res, 405, { error: 'method_not_allowed', message: 'Work order endpoints are read-only: use GET' }, { Allow: 'GET' });
+        send(res, 405, { error: 'method_not_allowed', message: `${req.method} is not supported at ${url.pathname}` }, { Allow: 'GET' });
         return;
       }
       if (url.pathname === `${BASE}/openapi.json`) {
@@ -137,9 +147,16 @@ export function createApiServer(db, { now, bluestakes = null, requestTimeoutMs =
       }
       const body = auditedRead(db, { key: bearerKey(req), operation: match.operation, params: match.params },
         () => match.read(db, match.params), now ? { now } : {});
-      send(res, 200, body);
+      // A single work order carries its version as an ETag, for use in If-Match when changing it.
+      const etag = match.operation === 'getWorkOrder' ? { ETag: etagFor(getWorkOrder(db, body.item.id).version) } : {};
+      send(res, 200, body, etag);
     } catch (err) {
       if (err instanceof RateLimitedError) send(res, 429, { error: 'too_many_requests', message: err.message }, { 'Retry-After': String(err.retryAfterSeconds) });
+      else if (err instanceof PreconditionRequiredError) send(res, 428, { error: 'precondition_required', message: err.message });
+      else if (err instanceof ResponseFormatError) {
+        console.error('API: response failed the published format check', err);
+        send(res, 500, { error: 'response_format_error', message: 'Our response did not match the published format, so it was not sent.' });
+      }
       else if (err instanceof ForbiddenError) send(res, 403, { error: 'forbidden', message: err.message });
       else if (err instanceof UnauthorizedError) send(res, 401, { error: 'unauthorized', message: err.message }, { 'WWW-Authenticate': 'Bearer' });
       else if (err instanceof ValidationError) send(res, 400, { error: 'invalid_request', message: err.message, problems: err.problems });

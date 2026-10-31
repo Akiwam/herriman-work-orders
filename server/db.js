@@ -21,7 +21,8 @@ const SCHEMA = `
     completed_at  TEXT,
     completion_note TEXT,
     request_id    TEXT UNIQUE,          -- caller-supplied; the same create sent twice makes one work order
-    is_public     INTEGER NOT NULL DEFAULT 0  -- 1 once staff publish it on the public site (STORY-003)
+    is_public     INTEGER NOT NULL DEFAULT 0, -- 1 once staff publish it on the public site (STORY-003)
+    version       INTEGER NOT NULL DEFAULT 1  -- +1 on every change; lets callers detect a stale update (STORY-004)
   );
 
   -- Requests citizens submit on the public site (STORY-003, REQ-037). Each one creates a work order.
@@ -158,6 +159,25 @@ const SCHEMA = `
     created_by  TEXT NOT NULL,
     created_at  TEXT NOT NULL,
     revoked_at  TEXT
+  );
+
+  -- Every HTTP request the API receives, whatever the endpoint or outcome (STORY-004 Trust).
+  -- Never holds an API key or the values in a request body — only the body's field names and size.
+  CREATE TABLE IF NOT EXISTS api_request_log (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id   TEXT NOT NULL UNIQUE,          -- also sent back as the X-Request-Id header
+    received_at  TEXT NOT NULL,
+    finished_at  TEXT NOT NULL,
+    duration_ms  INTEGER NOT NULL,
+    method       TEXT NOT NULL,
+    path         TEXT NOT NULL,
+    query_json   TEXT,
+    client_name  TEXT NOT NULL,                 -- the API client, 'anonymous' (no key) or 'invalid key'
+    client_ip    TEXT,
+    status       INTEGER,                       -- NULL if the connection closed before a response
+    error_code   TEXT,                          -- e.g. invalid_request, unauthorized, conflict
+    body_fields  TEXT,                          -- JSON array of the body's top-level field names
+    body_bytes   INTEGER
   );
 
   -- Append-only: rows are inserted, never updated or deleted.

@@ -247,20 +247,39 @@
       "criteria": [
         {
           "text": "Given an API request, when received, then the system processes it according to specifications.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a data update, when via API, then it reflects in the system.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: All API interactions are logged with timestamps and request details.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/api/workOrderWrites.js",
+        "server/api/requestLog.js",
+        "server/api/externalDemo.js",
+        "server/api/server.js",
+        "server/api/http.js",
+        "server/api/clients.js",
+        "server/api/openapi.js",
+        "server/workOrders.js",
+        "server/gisInbound.js",
+        "server/publicRequests.js",
+        "server/db.js",
+        "package.json",
+        "knowledge/notes.json",
+        "tests/madisonHttp.test.js"
+      ],
+      "tests_added": [
+        "tests/apiRequestLog.test.js",
+        "tests/workOrderVersions.test.js",
+        "tests/workOrderWritesHttp.test.js"
+      ],
+      "notes": "Generic, specified API connection for outside systems: create/update/complete work orders under work_orders:write, bodies checked against the OpenAPI contract (generated from the same field lists), ETag/If-Match versioning (412 on stale, 428 if missing), Idempotency-Key per system, and an api_request_log row for every request (field names only, never values or keys). Proven with a SIMULATED external system; REQ-054 coordination with specific vendors is still to be done by people (see STORY-009). Run `npm test` and `npm run demo:external`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",

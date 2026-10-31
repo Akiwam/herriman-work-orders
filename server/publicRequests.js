@@ -172,7 +172,7 @@ export function publishWorkOrder(db, id, { actor, isPublic = true, now = default
     const value = isPublic ? 1 : 0;
     if (before.is_public === value) return before;
     const at = now();
-    db.prepare('UPDATE work_orders SET is_public = ? WHERE id = ?').run(value, id);
+    db.prepare('UPDATE work_orders SET is_public = ?, version = version + 1 WHERE id = ?').run(value, id);
     const after = getWorkOrder(db, id);
     writeAudit(db, { entityType: 'work_order', entityId: id, action: isPublic ? 'publish' : 'unpublish', actor: actor.trim(), before, after, at });
     return after;
