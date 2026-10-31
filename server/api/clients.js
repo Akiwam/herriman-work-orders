@@ -32,6 +32,7 @@ export const WORK_ORDERS_WRITE_SCOPE = 'work_orders:write';
 export const VENDOR_SUBMIT_SCOPE = 'vendor:submit'; // a vendor answering the requirements (STORY-012)
 export const VENDOR_REVIEW_SCOPE = 'vendor:review'; // a city reviewer of vendor submissions
 export const HEATMAPS_SCOPE = 'heatmaps:read'; // planners and staff viewing heat maps (STORY-005)
+export const WORKFLOWS_ADMIN_SCOPE = 'workflows:admin'; // administrators publishing and retiring workflows (STORY-006)
 
 /** The access could not be recorded, so it is refused: no data leaves without an audit entry. */
 export class AuditUnavailableError extends Error {

@@ -3,6 +3,7 @@
 //   POST  /api/v1/work-orders                 create   — optional Idempotency-Key header
 //   PATCH /api/v1/work-orders/{id}            update   — If-Match: "v<version>" required
 //   POST  /api/v1/work-orders/{id}/complete   complete — If-Match: "v<version>" required
+//   POST  /api/v1/work-orders/{id}/transition move to the next workflow step — If-Match required (STORY-006)
 //
 // Every body is checked against the published contract (unknown fields are refused). Every response
 // carries the work order in the published format (checked before it is sent) and an ETag with its
@@ -16,9 +17,10 @@ import { toPublic, validateResponse, SCHEMA_VERSION } from './workOrderFeed.js';
 import {
   createWorkOrder, updateWorkOrder, completeWorkOrder, getWorkOrder, ValidationError, NotFoundError, VersionConflictError,
 } from '../workOrders.js';
+import { transitionWorkOrder, workflowPosition } from '../workflows.js';
 
 const BASE = '/api/v1/work-orders';
-const ONE = new RegExp(`^${BASE}/([^/]+)(?:/(complete))?$`);
+const ONE = new RegExp(`^${BASE}/([^/]+)(?:/(complete|transition))?$`);
 
 // What each body may contain. A trailing ? means optional. Also the source of the OpenAPI request
 // bodies (openapi.js), so the published contract and the real checks are the same list.
@@ -26,6 +28,7 @@ export const BODIES = {
   create: { actor: 'string', title: 'string', description: 'string?', work_type: 'string?', priority: 'string?', location_text: 'string?', asset_ids: 'array?' },
   update: { actor: 'string', title: 'string?', description: 'string?', work_type: 'string?', priority: 'string?', location_text: 'string?' },
   complete: { actor: 'string', note: 'string' },
+  transition: { actor: 'string', to: 'string' },
 };
 
 /** The If-Match header was not sent, but this change needs it (HTTP 428). */
@@ -76,7 +79,9 @@ function sendWorkOrder(res, db, status, id, extra = {}, headers = {}) {
   const body = { schema_version: SCHEMA_VERSION, item: toPublic(db, row) };
   const problems = validateResponse(body);
   if (problems.length) throw new ResponseFormatError(problems);
-  send(res, status, { ...body, ...extra }, { ETag: etagFor(row.version), ...headers });
+  // The workflow position is in meta, not the work order, so the published work order format is unchanged.
+  const meta = { ...extra.meta, workflow: workflowPosition(db, row) };
+  send(res, status, { ...body, ...extra, meta }, { ETag: etagFor(row.version), ...headers });
 }
 
 export function isWorkOrderWrite(req, pathname) {
@@ -89,7 +94,7 @@ export function isWorkOrderWrite(req, pathname) {
 export async function handleWorkOrderWrite(req, res, db, pathname, { key, gis = null, now } = {}) {
   const m = ONE.exec(pathname);
   const id = m ? decodeURIComponent(m[1]) : null;
-  const action = pathname === BASE ? 'create' : (m[2] ? 'complete' : 'update');
+  const action = pathname === BASE ? 'create' : (m[2] ?? 'update');
   const operation = `${action}WorkOrder`;
   const opts = now ? { now } : {};
 
@@ -116,6 +121,11 @@ export async function handleWorkOrderWrite(req, res, db, pathname, { key, gis = 
   if (!getWorkOrder(db, id)) throw new NotFoundError(id);
   const expectedVersion = parseIfMatch(req.headers['if-match']);
   try {
+    if (action === 'transition') {
+      transitionWorkOrder(db, id, { to: fields.to, actor, expectedVersion, ...opts });
+      sendWorkOrder(res, db, 200, id);
+      return;
+    }
     const result = action === 'complete'
       ? await completeWorkOrder(db, id, { note: fields.note, actor, gis, expectedVersion, ...opts })
       : await updateWorkOrder(db, id, fields, { actor, gis, expectedVersion, ...opts });

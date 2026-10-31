@@ -199,6 +199,7 @@ const HISTORY_LABELS = {
   update: 'Work order updated',
   gis_update: 'Location details updated',
   complete: 'Work completed',
+  transition: 'Progress update', // a workflow step (STORY-006); step names are internal, so not shown
 };
 
 /**

@@ -6,6 +6,9 @@
 //   GET  /api/v1/work-orders/changes       ?since=<ISO time>
 //   GET  /api/v1/work-orders/search        ?q=<keywords>
 //   GET  /api/v1/work-orders/{id}          one work order
+//   GET  /api/v1/work-orders/{id}/workflow its workflow step and where it can go next (STORY-006)
+//
+// Workflows (STORY-006) — see workflowRoutes.js; transitions are in workOrderWrites.js.
 //
 // Locate tickets from the one-call centre (STORY-013) — needs scope locate_tickets:write:
 //   GET   /api/v1/locate-tickets/{id}            view a ticket
@@ -40,6 +43,8 @@ import { getWorkOrder } from '../workOrders.js';
 import { handleVendor, VENDOR_BASE } from './vendorRoutes.js';
 import { handleHeatMap, HEAT_MAP_PATH } from './heatMapRoutes.js';
 import { MapGenerationError } from '../heatMaps.js';
+import { handleWorkflows, WORKFLOWS_BASE } from './workflowRoutes.js';
+import { workflowPosition } from '../workflows.js';
 
 const BASE = '/api/v1';
 
@@ -57,9 +62,17 @@ function workOrderRoute(pathname, query) {
   if (pathname === `${BASE}/work-orders`) return { operation: 'listWorkOrders', read: listWorkOrders, params };
   if (pathname === `${BASE}/work-orders/changes`) return { operation: 'workOrderChanges', read: workOrderChanges, params };
   if (pathname === `${BASE}/work-orders/search`) return { operation: 'searchWorkOrders', read: searchWorkOrders, params };
+  const position = new RegExp(`^${BASE}/work-orders/([^/]+)/workflow$`).exec(pathname);
+  if (position) return { operation: 'getWorkOrderWorkflow', read: readWorkflowPosition, params: { id: decodeURIComponent(position[1]) } };
   const one = new RegExp(`^${BASE}/work-orders/([^/]+)$`).exec(pathname);
   if (one) return { operation: 'getWorkOrder', read: getPublicWorkOrder, params: { id: decodeURIComponent(one[1]) } };
   return null;
+}
+
+function readWorkflowPosition(db, { id }) {
+  const wo = getWorkOrder(db, id);
+  if (!wo) throw new NotFoundError(id);
+  return { item: { work_order_id: wo.id, status: wo.status, ...workflowPosition(db, wo) } };
 }
 
 // ---------- locate tickets ----------
@@ -137,6 +150,10 @@ export function createApiServer(db, { now, bluestakes = null, gis = null, reques
       }
       if (url.pathname.startsWith(`${VENDOR_BASE}/`)) {
         await handleVendor(req, res, db, url, { key: bearerKey(req), now });
+        return;
+      }
+      if (url.pathname === WORKFLOWS_BASE || url.pathname.startsWith(`${WORKFLOWS_BASE}/`)) {
+        await handleWorkflows(req, res, db, url, { key: bearerKey(req), now });
         return;
       }
       if (isWorkOrderWrite(req, url.pathname)) {

@@ -4,6 +4,7 @@
 import { WORK_ORDER_FIELDS, SCHEMA_VERSION } from './workOrderFeed.js';
 import { RESPONSE_CODES } from '../locateTickets.js';
 import { BODIES } from './workOrderWrites.js';
+import { WORKFLOW_FIELDS, STEP_FIELDS } from './workflowRoutes.js';
 import { SUBMISSION_FIELDS, REVIEW_FIELDS } from './vendorRoutes.js';
 import { FORMATS as HEAT_MAP_FORMATS, STATUSES as HEAT_MAP_STATUSES, CELL_SIZE as HEAT_MAP_CELL } from '../heatMaps.js';
 import { COMPLIANCE_VALUES, REVIEW_DECISIONS, MAX_DOCUMENTS, MAX_DOCUMENT_BYTES } from '../vendorSubmissions.js';
@@ -39,6 +40,27 @@ const vendorErrors = {
   403: { description: 'The key does not have the role this endpoint needs (vendor:submit or vendor:review)' },
   404: { description: 'No such item — or it belongs to another vendor' },
 };
+// Workflow bodies (STORY-006). Field names come from the lists the endpoint enforces; this adds the types.
+const WORKFLOW_FIELD_SCHEMAS = {
+  actor: { type: 'string', description: 'The administrator making the change; recorded in the audit trail with the calling system.' },
+  key: { type: 'string', pattern: '^[a-z][a-z0-9_]{1,40}$', description: 'Stays the same across versions, e.g. pothole_repair' },
+  name: { type: 'string', minLength: 2, maxLength: 80 },
+  work_type: { type: 'string', description: 'New work orders of this type follow the workflow; other types follow Standard.' },
+  steps: { type: 'array', minItems: 2, maxItems: 30, description: 'The first step is where work orders start. Exactly one is final.', items: { $ref: '#/components/schemas/WorkflowStep' } },
+};
+const STEP_FIELD_SCHEMAS = {
+  key: { type: 'string', pattern: '^[a-z][a-z0-9_]{1,40}$' },
+  name: { type: 'string' },
+  next: { type: 'array', items: { type: 'string' }, description: 'Step keys it may move to. Empty only for the final step.' },
+  final: { type: 'boolean', description: 'Reaching it completes the work order (which needs a note).' },
+};
+const workflowErrors = {
+  401: { description: 'Missing or invalid API key' },
+  403: { description: 'The key does not have workflows:admin' },
+  503: { description: 'Database or audit trail unavailable; retry later' },
+};
+const workflowKey = { name: 'key', in: 'path', required: true, schema: { type: 'string' } };
+
 const vendorId = { name: 'id', in: 'path', required: true, schema: { type: 'string' } };
 
 /** A request body schema straight from the list the endpoint checks against. */
@@ -173,6 +195,52 @@ export function openApiDocument() {
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, ifMatch],
           requestBody: { required: true, content: { 'application/json': { schema: bodySchema(BODIES.complete) } } },
           responses: { ...writeOk(200, 'Completed'), ...changeErrors },
+        },
+      },
+      '/work-orders/{id}/transition': {
+        post: {
+          summary: 'Move a work order to one of the next steps its workflow allows (needs work_orders:write)',
+          description: 'The final step is reached by completing the work order, not by a transition. '
+            + 'Work orders keep the workflow version they started on. meta.workflow in the response shows the new step and the next steps.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, ifMatch],
+          requestBody: { required: true, content: { 'application/json': { schema: bodySchema(BODIES.transition) } } },
+          responses: { ...writeOk(200, 'Moved'), ...changeErrors, 409: { description: 'Not a next step from where the work order is, the final step, or the work order is completed' } },
+        },
+      },
+      '/work-orders/{id}/workflow': {
+        get: {
+          summary: 'Where a work order is in its workflow, and where it can go next',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'OK', content: { 'application/json': { schema: { type: 'object', properties: { item: { $ref: '#/components/schemas/WorkflowPosition' } } } } } }, ...errors, 404: { description: 'No such work order' } },
+        },
+      },
+      '/workflows': {
+        get: { summary: 'Every workflow and its versions (needs work_orders:read)', responses: ok({ type: 'object' }) },
+        post: {
+          summary: 'Publish a workflow, or a new version of one (needs workflows:admin)',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', additionalProperties: false, required: WORKFLOW_FIELDS, properties: Object.fromEntries(WORKFLOW_FIELDS.map((f) => [f, WORKFLOW_FIELD_SCHEMAS[f]])) } } },
+          },
+          responses: {
+            201: { description: 'Published as a new version' },
+            200: { description: 'Identical to the active version; nothing changed (unchanged: true)' },
+            400: { description: 'The body is not valid JSON or has no actor' },
+            409: { description: 'Another workflow already covers this work type' },
+            422: { description: 'The workflow could strand work orders or is malformed. problems lists every issue; nothing was saved.', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+            ...workflowErrors,
+          },
+        },
+      },
+      '/workflows/{key}': {
+        get: { summary: 'The active version of a workflow, with its steps (needs work_orders:read)', parameters: [workflowKey], responses: { ...ok({ type: 'object' }), 404: { description: 'No active workflow with this key' } } },
+      },
+      '/workflows/{key}/retire': {
+        post: {
+          summary: 'Retire a workflow: new work orders of its type follow Standard; work already on it keeps it (needs workflows:admin)',
+          parameters: [workflowKey],
+          requestBody: jsonBody({ actor }, ['actor']),
+          responses: { 200: { description: 'Retired' }, 404: { description: 'No active workflow with this key' }, 409: { description: 'Standard cannot be retired' }, ...workflowErrors },
         },
       },
       '/work-orders/changes': {
@@ -323,7 +391,7 @@ export function openApiDocument() {
           properties: {
             schema_version: { const: SCHEMA_VERSION },
             item: { $ref: '#/components/schemas/WorkOrder' },
-            meta: { type: 'object', properties: { gis_sync: { type: 'string', enum: ['none', 'pending', 'synced'] } } },
+            meta: { type: 'object', properties: { gis_sync: { type: 'string', enum: ['none', 'pending', 'synced'] }, workflow: { $ref: '#/components/schemas/WorkflowPosition' } } },
           },
         },
         SingleWorkOrder: {
@@ -342,6 +410,20 @@ export function openApiDocument() {
             item: { $ref: '#/components/schemas/LocateTicket' },
             delivery: { type: 'string', enum: ['none', 'pending', 'delivered'] },
             delivery_failures: { type: 'array', items: { type: 'object' } },
+          },
+        },
+        WorkflowStep: {
+          type: 'object', additionalProperties: false, required: ['key', 'name', 'next'],
+          properties: Object.fromEntries(STEP_FIELDS.map((f) => [f, STEP_FIELD_SCHEMAS[f]])),
+        },
+        WorkflowPosition: {
+          type: 'object',
+          properties: {
+            work_order_id: { type: 'string' }, status: { type: 'string' }, workflow_key: { type: 'string' }, workflow_version: { type: 'integer' },
+            workflow_name: { type: 'string' }, current_step: { type: 'string' }, current_step_name: { type: 'string' },
+            step_entered_at: { type: ['string', 'null'], format: 'date-time' },
+            next_steps: { type: 'array', items: { type: 'object', properties: { key: { type: 'string' }, name: { type: 'string' } } } },
+            can_complete: { type: 'boolean' },
           },
         },
         Error: {

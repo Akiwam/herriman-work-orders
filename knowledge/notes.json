@@ -266,6 +266,34 @@
       "title": "Grid heat maps split neighbours at cell edges",
       "body": "Two work orders a few metres apart can fall either side of a cell boundary and be counted in different cells. This is inherent to a fixed grid; a smoothed (kernel density) map would avoid it but was not needed for REQ-031.",
       "evidence": "tests/heatMaps.test.js (a larger cell size merges nearby points)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Today's behaviour is the built-in Standard workflow",
+      "body": "Every work type without a workflow of its own follows Standard: Open, then Completed. Existing work orders were put on Standard at the matching step, so nothing about current work changed. Status stays open/completed for the Madison AI feed, public site and heat maps; the workflow step is extra detail alongside it.",
+      "evidence": "server/db.js (wf-standard-1, addWorkflowColumns); server/workflows.js (workflowForWorkType)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Workflow changes are new versions; work under way keeps its version",
+      "body": "Publishing a change creates a new version for new work orders. Work orders already under way stay on the version they started with, so a change can never leave one on a step that no longer exists. Retiring a workflow sends new work orders of that type back to Standard; work already on it can still be finished.",
+      "evidence": "server/workflows.js (publishWorkflow, retireWorkflow); tests/workflows.test.js (stays on its workflow version)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "A workflow is refused unless every work order on it can be completed",
+      "body": "Exactly one final step; every step reachable from the first; every step has a way to the final step; no dead ends, unknown steps, self-moves or duplicate names. All problems are listed at once (HTTP 422) and nothing is saved. The saved version is read back and fingerprint-checked inside the same transaction as its audit entry.",
+      "evidence": "server/workflows.js (validateWorkflow, publishWorkflow)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "limitation",
+      "title": "Step-by-step permissions wait for role-based access",
+      "body": "Any key with work_orders:write can move a work order to any allowed next step. A required role per step is stored but not enforced until roles and users exist. Step names are not shown on the public site (only \"Progress update\"), and refused workflow definitions are in the request log, not the audit trail, because nothing changed.",
+      "evidence": "server/db.js (workflow_steps.required_role); server/publicRequests.js (HISTORY_LABELS)"
     }
   ]
 }

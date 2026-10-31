@@ -22,7 +22,10 @@ const SCHEMA = `
     completion_note TEXT,
     request_id    TEXT UNIQUE,          -- caller-supplied; the same create sent twice makes one work order
     is_public     INTEGER NOT NULL DEFAULT 0, -- 1 once staff publish it on the public site (STORY-003)
-    version       INTEGER NOT NULL DEFAULT 1  -- +1 on every change; lets callers detect a stale update (STORY-004)
+    version       INTEGER NOT NULL DEFAULT 1, -- +1 on every change; lets callers detect a stale update (STORY-004)
+    workflow_id   TEXT,                 -- the workflow version it follows; kept even after a newer version is published (STORY-006)
+    current_step  TEXT,                 -- its step in that workflow
+    step_entered_at TEXT                -- when it reached that step
   );
 
   -- Requests citizens submit on the public site (STORY-003, REQ-037). Each one creates a work order.
@@ -148,6 +151,41 @@ const SCHEMA = `
     duration_ms   INTEGER NOT NULL
   );
 
+  -- Workflows (STORY-006, REQ-045): the steps a work order goes through. Versioned: a change is
+  -- published as a new version; work orders keep the version they started on. Built from the
+  -- proposed workflow / workflow_step tables in knowledge/data-model.json.
+  CREATE TABLE IF NOT EXISTS workflows (
+    id                TEXT PRIMARY KEY,
+    workflow_key      TEXT NOT NULL,            -- e.g. pothole_repair; the same across versions
+    version           INTEGER NOT NULL,
+    name              TEXT NOT NULL,
+    work_type         TEXT,                     -- the work type it is for; NULL only for the built-in Standard workflow
+    status            TEXT NOT NULL,            -- active | superseded | retired
+    definition_sha256 TEXT NOT NULL,            -- fingerprint of the steps, to confirm it was saved as sent
+    created_by        TEXT NOT NULL,
+    created_at        TEXT NOT NULL,
+    UNIQUE (workflow_key, version)
+  );
+
+  CREATE TABLE IF NOT EXISTS workflow_steps (
+    workflow_id     TEXT NOT NULL REFERENCES workflows(id),
+    step_key        TEXT NOT NULL,
+    position        INTEGER NOT NULL,           -- 1 = the step a work order starts on
+    name            TEXT NOT NULL,
+    is_final        INTEGER NOT NULL,           -- 1 = reaching it completes the work order
+    next_steps_json TEXT NOT NULL,              -- JSON array of the step keys it may move to
+    required_role   TEXT,                       -- reserved for STORY-007 (role-based access); not enforced yet
+    PRIMARY KEY (workflow_id, step_key)
+  );
+
+  -- The built-in Standard workflow is today's behaviour: open, then completed. It applies to every
+  -- work type without a workflow of its own, so existing work keeps working exactly as before.
+  INSERT OR IGNORE INTO workflows (id, workflow_key, version, name, work_type, status, definition_sha256, created_by, created_at)
+    VALUES ('wf-standard-1', 'standard', 1, 'Standard', NULL, 'active', 'built-in', 'system', '2026-10-01T00:00:00.000Z');
+  INSERT OR IGNORE INTO workflow_steps (workflow_id, step_key, position, name, is_final, next_steps_json)
+    VALUES ('wf-standard-1', 'open', 1, 'Open', 0, '["completed"]'),
+           ('wf-standard-1', 'completed', 2, 'Completed', 1, '[]');
+
   -- A vendor's compliance answer and technical approach for one requirement (STORY-012, REQ-022).
   -- Each resubmission is a new revision; earlier revisions are kept. Built from the proposed
   -- compliance_response table in knowledge/data-model.json.
@@ -250,7 +288,24 @@ export function openDatabase(path = ':memory:') {
   const db = new DatabaseSync(path);
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(SCHEMA);
+  addWorkflowColumns(db);
   return db;
+}
+
+/**
+ * Databases made before workflows (STORY-006) lack the workflow columns: add them, and put every
+ * existing work order on the built-in Standard workflow — open ones on Open, completed ones on
+ * Completed — which is exactly how they behaved before. Not a user change, so version is not bumped.
+ */
+function addWorkflowColumns(db) {
+  const have = new Set(db.prepare('PRAGMA table_info(work_orders)').all().map((c) => c.name));
+  for (const col of ['workflow_id', 'current_step', 'step_entered_at']) {
+    if (!have.has(col)) db.exec(`ALTER TABLE work_orders ADD COLUMN ${col} TEXT`);
+  }
+  db.exec(`UPDATE work_orders SET workflow_id = 'wf-standard-1',
+             current_step = CASE status WHEN 'completed' THEN 'completed' ELSE 'open' END,
+             step_entered_at = COALESCE(completed_at, created_at)
+           WHERE workflow_id IS NULL`);
 }
 
 /**

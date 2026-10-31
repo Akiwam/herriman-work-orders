@@ -43,12 +43,21 @@
         {
           "name": "status",
           "type": "text",
-          "note": "current step in its workflow"
+          "note": "open or completed; the workflow step is in current_step"
         },
         {
           "name": "workflow_id",
           "type": "uuid",
           "note": "→ workflow"
+        },
+        {
+          "name": "current_step",
+          "type": "text",
+          "note": "its step in that workflow version"
+        },
+        {
+          "name": "step_entered_at",
+          "type": "timestamp"
         },
         {
           "name": "location_text",
@@ -425,7 +434,7 @@
     },
     {
       "name": "workflow",
-      "purpose": "A configurable sequence of steps, so existing workflows are kept and new ones can be added.",
+      "purpose": "A configurable sequence of steps for one work type, kept in versions, so existing workflows keep working and new ones can be added. Built as the workflows table; a built-in Standard workflow covers every work type without its own.",
       "requirements": [
         "REQ-045"
       ],
@@ -433,7 +442,16 @@
         {
           "name": "id",
           "type": "uuid",
-          "note": "primary key"
+          "note": "primary key; one row per version"
+        },
+        {
+          "name": "workflow_key",
+          "type": "text",
+          "note": "the same across versions"
+        },
+        {
+          "name": "version",
+          "type": "integer"
         },
         {
           "name": "name",
@@ -441,11 +459,26 @@
         },
         {
           "name": "work_type",
+          "type": "text",
+          "note": "null only for Standard"
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "note": "active | superseded | retired"
+        },
+        {
+          "name": "definition_sha256",
+          "type": "text",
+          "note": "confirms it was saved as sent"
+        },
+        {
+          "name": "created_by",
           "type": "text"
         },
         {
-          "name": "is_active",
-          "type": "boolean"
+          "name": "created_at",
+          "type": "timestamp"
         }
       ],
       "relationships": [
@@ -463,33 +496,43 @@
     },
     {
       "name": "workflow_step",
-      "purpose": "One step of a workflow, in order, with who may move a work order past it.",
+      "purpose": "One step of a workflow version, with the steps it may move to. Built as the workflow_steps table.",
       "requirements": [
         "REQ-045"
       ],
       "fields": [
-        {
-          "name": "id",
-          "type": "uuid",
-          "note": "primary key"
-        },
         {
           "name": "workflow_id",
           "type": "uuid",
           "note": "→ workflow"
         },
         {
-          "name": "position",
-          "type": "integer"
-        },
-        {
-          "name": "status_name",
+          "name": "step_key",
           "type": "text"
         },
         {
-          "name": "required_role_id",
-          "type": "uuid",
-          "note": "→ role, nullable"
+          "name": "position",
+          "type": "integer",
+          "note": "1 = where work orders start"
+        },
+        {
+          "name": "name",
+          "type": "text"
+        },
+        {
+          "name": "is_final",
+          "type": "boolean",
+          "note": "reaching it completes the work order"
+        },
+        {
+          "name": "next_steps_json",
+          "type": "json",
+          "note": "step keys it may move to"
+        },
+        {
+          "name": "required_role",
+          "type": "text",
+          "note": "→ role, nullable; not enforced until roles exist"
         }
       ],
       "relationships": [

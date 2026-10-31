@@ -12,6 +12,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { inTransaction } from './db.js';
+import { workflowForWorkType, getWorkflow } from './workflows.js';
 
 export class NotFoundError extends Error {
   constructor(id) {
@@ -209,13 +210,16 @@ export async function createWorkOrder(db, input, { gis = null, now = defaultNow 
     // Re-check inside the transaction: two identical requests may have raced past the first check.
     const raced = requestId ? findByRequestId(db, requestId) : null;
     if (raced) return raced;
+    // Workflows (STORY-006): start on the first step of the workflow for this work type (Standard if it has none).
+    const workflow = workflowForWorkType(db, row.work_type);
+    Object.assign(row, { workflow_id: workflow.id, current_step: workflow.steps[0].key, step_entered_at: at });
     db.prepare(`
       INSERT INTO work_orders (id, title, description, work_type, priority, status, location_text, address,
                                latitude, longitude, created_by, created_at, updated_at, completed_at,
-                               completion_note, request_id)
+                               completion_note, request_id, workflow_id, current_step, step_entered_at)
       VALUES (:id, :title, :description, :work_type, :priority, :status, :location_text, :address,
               :latitude, :longitude, :created_by, :created_at, :updated_at, :completed_at,
-              :completion_note, :request_id)
+              :completion_note, :request_id, :workflow_id, :current_step, :step_entered_at)
     `).run(row);
     const insertAsset = db.prepare(`
       INSERT INTO work_order_assets (work_order_id, asset_id, asset_type, asset_name, attributes_json)
@@ -308,6 +312,9 @@ export async function updateWorkOrder(db, id, changes, { actor, gis = null, now 
  * Complete a work order (REQ-051). A completion note is required, so a work order is never
  * closed without saying what was done. Audited and pushed to GIS like any other change.
  * Completing an already-completed work order is refused (ConflictError) rather than repeated.
+ *
+ * Workflows (STORY-006): completion moves the work order to its workflow's final step, and is only
+ * allowed from a step that leads straight to it. Under the Standard workflow that is always true.
  */
 export async function completeWorkOrder(db, id, { note, actor, gis = null, now = defaultNow, expectedVersion } = {}) {
   const problems = [];
@@ -321,10 +328,18 @@ export async function completeWorkOrder(db, id, { note, actor, gis = null, now =
     if (!before) throw new NotFoundError(id);
     if (before.status === 'completed') throw new ConflictError('This work order is already completed.');
     assertVersion(before, expectedVersion);
+    const workflow = getWorkflow(db, before.workflow_id);
+    const final = workflow.steps.find((s) => s.final);
+    const step = workflow.steps.find((s) => s.key === before.current_step);
+    if (!step?.next.includes(final.key)) {
+      const ways = workflow.steps.filter((s) => s.next.includes(final.key)).map((s) => s.name).join(' or ');
+      throw new ConflictError(`This work order is at "${step?.name ?? before.current_step}" and can only be completed from ${ways}.`);
+    }
 
     const at = now();
-    db.prepare(`UPDATE work_orders SET status = 'completed', completed_at = ?, completion_note = ?, updated_at = ?, version = version + 1 WHERE id = ?`)
-      .run(at, note.trim(), at, id);
+    db.prepare(`UPDATE work_orders SET status = 'completed', completed_at = ?, completion_note = ?, updated_at = ?,
+                current_step = ?, step_entered_at = ?, version = version + 1 WHERE id = ?`)
+      .run(at, note.trim(), at, final.key, at, id);
     const after = getWorkOrder(db, id);
     queueSync(db, id, getAssets(db, id).map((a) => a.asset_id), at);
     writeAudit(db, { entityType: 'work_order', entityId: id, action: 'complete', actor: actor.trim(), before, after, at });

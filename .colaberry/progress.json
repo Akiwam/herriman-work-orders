@@ -355,20 +355,37 @@
       "criteria": [
         {
           "text": "Given a workflow change, when applied, then the system supports the new workflow.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given an existing workflow, when reviewed, then it operates as expected.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: All workflow changes are logged with user IDs and timestamps.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/workflows.js",
+        "server/workflowDemo.js",
+        "server/api/workflowRoutes.js",
+        "server/api/workOrderWrites.js",
+        "server/api/server.js",
+        "server/api/clients.js",
+        "server/api/openapi.js",
+        "server/workOrders.js",
+        "server/publicRequests.js",
+        "server/db.js",
+        "package.json",
+        "knowledge/notes.json",
+        "knowledge/data-model.json"
+      ],
+      "tests_added": [
+        "tests/workflows.test.js",
+        "tests/workflowsHttp.test.js"
+      ],
+      "notes": "Versioned workflows per work type: named steps with allowed next steps, exactly one final step. The built-in Standard workflow (Open -> Completed) is today's behaviour and covers every work type without its own, so existing work is unchanged. A change is published as a new version; work orders keep the version they started on. Definitions that could strand work orders (dead ends, unreachable steps, no way to finish, unknown steps, duplicates) are refused with every problem listed (422) and nothing saved. Publish and retire need workflows:admin; moving a work order (POST /api/v1/work-orders/{id}/transition, If-Match) needs work_orders:write; completion still needs a note. Every publish, retire and move is audited with user and time. Run `npm test` and `npm run demo:workflows`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",
