@@ -471,20 +471,42 @@
       "criteria": [
         {
           "text": "Given a system setting, when configured, then it applies across the system.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a user account, when managed, then changes reflect immediately.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: All configuration changes are logged with user IDs and timestamps.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/settings.js",
+        "server/settingsDemo.js",
+        "server/api/settingsRoutes.js",
+        "server/access.js",
+        "server/api/accessRoutes.js",
+        "server/api/clients.js",
+        "server/api/server.js",
+        "server/api/openapi.js",
+        "server/publicRequests.js",
+        "server/vendorSubmissions.js",
+        "server/heatMaps.js",
+        "server/workOrders.js",
+        "server/db.js",
+        "package.json",
+        "knowledge/notes.json",
+        "knowledge/data-model.json"
+      ],
+      "tests_added": [
+        "tests/settings.test.js",
+        "tests/settingsHttp.test.js",
+        "tests/userManagement.test.js",
+        "tests/userManagementHttp.test.js"
+      ],
+      "notes": "System settings defined in code (type, range, default) with the city's values in system_settings: public rate limit, IP retention days, vendor review overdue days, default heat map cell size. Each is read when used, so a change applies on the next request. Changes (PUT/DELETE /api/v1/settings/{key}, settings:admin, personal key, If-Match) are saved with their audit entry and read back; out of range -> 400, stale -> 412, not confirmed -> 503 configuration_not_saved. User management: edit (If-Match), deactivate (key removed, refused next request; not yourself, not the last administrator), reactivate (new key needed); city-defined roles from known permissions, changes apply at once, built-in roles fixed, in-use roles cannot be deleted. Everything audited with user id and time; refusals audited, including system keys. Run `npm test`, `npm run demo:settings`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",

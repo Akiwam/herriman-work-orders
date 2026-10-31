@@ -10,6 +10,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { inTransaction } from './db.js';
 import { createWorkOrder, getWorkOrder, writeAudit, ValidationError, NotFoundError } from './workOrders.js';
+import { getSetting } from './settings.js';
 
 export const PORTAL_ACTOR = 'public-portal';
 const defaultNow = () => new Date().toISOString();
@@ -66,7 +67,7 @@ export class RateLimitedError extends Error {
 }
 
 // Spam protection: at most this many accepted submissions per address per window.
-export const RATE_LIMIT = { max: 5, windowMinutes: 60 };
+export const RATE_LIMIT = { max: 5, windowMinutes: 60 }; // built-in default; administrators change max with the setting public.rate_limit_per_hour
 
 function logSubmission(db, { ip, at, outcome, serviceRequestId = null, detail = null }) {
   db.prepare(`INSERT INTO public_submission_log (ip_address, submitted_at, outcome, service_request_id, detail)
@@ -93,7 +94,10 @@ function receipt(row, duplicate) {
  *   same submission again finishes the job without a second work order (the work order's request_id
  *   is derived from the submission_id).
  */
-export async function submitPublicRequest(db, input, { ip, gis = null, now = defaultNow, rateLimit = RATE_LIMIT } = {}) {
+// The rate limit is read from settings on every submission (STORY-008), so a change applies to the very next one.
+export async function submitPublicRequest(db, input, {
+  ip, gis = null, now = defaultNow, rateLimit = { max: getSetting(db, 'public.rate_limit_per_hour'), windowMinutes: 60 },
+} = {}) {
   if (typeof ip !== 'string' || ip.trim() === '') throw new TypeError('submitPublicRequest needs the submitter\'s IP address');
   const at = now();
 
@@ -257,13 +261,13 @@ export function listPublicWorkOrders(db, { limit = 20 } = {}) {
 // ---------- IP retention ----------
 
 // PLACEHOLDER: 90 days until the city's records retention rule for submission IPs is known.
-export const IP_RETENTION_DAYS = 90;
+export const IP_RETENTION_DAYS = 90; // built-in default; administrators change it with the setting public.ip_retention_days
 
 /**
  * Remove IP addresses older than the retention period from the submission log. The log rows stay
  * (time and outcome), only the IP is cleared. Safe to run any number of times. Returns how many were cleared.
  */
-export function purgeSubmissionIps(db, { now = defaultNow, retentionDays = IP_RETENTION_DAYS } = {}) {
+export function purgeSubmissionIps(db, { now = defaultNow, retentionDays = getSetting(db, 'public.ip_retention_days') } = {}) {
   const cutoff = new Date(Date.parse(now()) - retentionDays * 24 * 60 * 60 * 1000).toISOString();
   return Number(db.prepare('UPDATE public_submission_log SET ip_address = NULL WHERE ip_address IS NOT NULL AND submitted_at < ?')
     .run(cutoff).changes);

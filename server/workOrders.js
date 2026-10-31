@@ -57,7 +57,7 @@ function assertVersion(row, expectedVersion) {
 
 export class ValidationError extends Error {
   constructor(problems) {
-    super(`Work order is missing required data: ${problems.join('; ')}`);
+    super(`Not accepted: ${problems.join('; ')}`); // shared by work orders, settings, users and workflows
     this.name = 'ValidationError';
     this.problems = problems;
   }

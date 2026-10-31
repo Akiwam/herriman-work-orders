@@ -7,24 +7,25 @@
 // The numbers always reconcile: sum of cell counts + unmapped = work orders matching the filters.
 
 import { ValidationError } from './workOrders.js';
+import { getSetting } from './settings.js';
 
 // Grid cells are squares of cell_size_m metres. Converting metres to degrees of longitude depends on
 // latitude; one fixed reference latitude (Herriman, Utah, about 40.5°N) keeps every heat map on the
 // same grid, so cells from different runs line up and can be compared.
 export const REFERENCE_LATITUDE = 40.5;
 const METRES_PER_DEGREE_LAT = 111_320;
-export const CELL_SIZE = { min: 50, max: 2000, default: 250 };
+export const CELL_SIZE = { min: 50, max: 2000, default: 250 }; // default is the built-in one; administrators change it with heat_maps.default_cell_size_m
 export const STATUSES = ['all', 'open', 'completed'];
 const ALLOWED_PARAMS = ['cell_size_m', 'work_types', 'from', 'to', 'status'];
 
 const isIso = (v) => typeof v === 'string' && !Number.isNaN(Date.parse(v));
 
 /** Check the parameters and return them normalised. Every problem is listed at once. */
-export function normaliseParams(input = {}) {
+export function normaliseParams(input = {}, { defaultCellSize = CELL_SIZE.default } = {}) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new ValidationError(['parameters must be an object']);
   const problems = Object.keys(input).filter((k) => !ALLOWED_PARAMS.includes(k)).map((k) => `${k} is not a heat map parameter`);
 
-  let cellSize = CELL_SIZE.default;
+  let cellSize = defaultCellSize;
   if (input.cell_size_m !== undefined) {
     cellSize = Number(input.cell_size_m);
     if (!Number.isInteger(cellSize) || cellSize < CELL_SIZE.min || cellSize > CELL_SIZE.max) {
@@ -86,7 +87,7 @@ function matchingWorkOrders(db, p) {
  * this function — never individual work orders.
  */
 export function analyzeWorkOrders(db, input = {}) {
-  const params = normaliseParams(input);
+  const params = normaliseParams(input, { defaultCellSize: getSetting(db, 'heat_maps.default_cell_size_m') });
   const size = cellDegrees(params.cell_size_m);
   const rows = matchingWorkOrders(db, params);
 

@@ -197,7 +197,8 @@ const SCHEMA = `
     key_prefix   TEXT UNIQUE,               -- the user's personal API key: prefix in clear, the rest only as a hash
     key_hash     TEXT,
     created_by   TEXT NOT NULL,             -- user id of the administrator, or 'system' for the first one
-    created_at   TEXT NOT NULL
+    created_at   TEXT NOT NULL,
+    version      INTEGER NOT NULL DEFAULT 1 -- +1 on every change to the user (STORY-008)
   );
 
   -- A role is a named set of permissions. The permissions are the same names API client scopes use.
@@ -207,6 +208,17 @@ const SCHEMA = `
     description      TEXT NOT NULL,
     permissions_json TEXT NOT NULL,         -- JSON array, e.g. ["work_orders:read"]
     is_builtin       INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- System settings administrators can change (STORY-008, REQ-047). Which settings exist, their
+  -- types, ranges and defaults are defined in code (server/settings.js); this holds only the values
+  -- the city has chosen. value_json NULL means "back to the default". Never holds secrets.
+  CREATE TABLE IF NOT EXISTS system_settings (
+    key        TEXT PRIMARY KEY,
+    value_json TEXT,
+    version    INTEGER NOT NULL,             -- +1 on every change; lets two administrators not overwrite each other
+    updated_by TEXT NOT NULL,                -- user id
+    updated_at TEXT NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS user_roles (
@@ -321,6 +333,7 @@ export function openDatabase(path = ':memory:') {
   db.exec(SCHEMA);
   addWorkflowColumns(db);
   addAuditUserColumn(db);
+  addUserVersionColumn(db);
   seedRoles(db);
   return db;
 }
@@ -330,6 +343,12 @@ export function openDatabase(path = ':memory:') {
  * existing work order on the built-in Standard workflow — open ones on Open, completed ones on
  * Completed — which is exactly how they behaved before. Not a user change, so version is not bumped.
  */
+/** Users made before user management (STORY-008) get a version, starting at 1. */
+function addUserVersionColumn(db) {
+  const have = db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'version');
+  if (!have) db.exec('ALTER TABLE users ADD COLUMN version INTEGER NOT NULL DEFAULT 1');
+}
+
 /**
  * Audit entries record the verified user id of whoever acted (STORY-007), next to the actor text.
  * NULL for entries written by outside systems and for entries made before users existed.
@@ -344,7 +363,7 @@ function addAuditUserColumn(db) {
 // it belongs to outside vendors only.
 export const BUILTIN_ROLES = [
   ['system_admin', 'System administrator', 'Everything, including who has access and the audit trail.',
-    ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write', 'vendor:review', 'access:admin', 'audit:read']],
+    ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write', 'vendor:review', 'access:admin', 'audit:read', 'settings:admin']],
   ['supervisor', 'Supervisor', 'Runs the work: work orders, workflows, locate tickets and heat maps.',
     ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write']],
   ['field_crew', 'Field crew', 'Reads work orders and moves them along; answers locate tickets.',
@@ -354,9 +373,15 @@ export const BUILTIN_ROLES = [
   ['auditor', 'Auditor', 'Read-only, including the audit trail.', ['work_orders:read', 'heatmaps:read', 'audit:read']],
 ];
 
+/**
+ * Built-in roles always match the list above, so a database made earlier picks up a new permission
+ * (e.g. settings:admin). Built-in roles cannot be edited by administrators, so nothing is lost.
+ */
 function seedRoles(db) {
-  const insert = db.prepare('INSERT OR IGNORE INTO roles (id, name, description, permissions_json, is_builtin) VALUES (?, ?, ?, ?, 1)');
-  for (const [id, name, description, permissions] of BUILTIN_ROLES) insert.run(id, name, description, JSON.stringify(permissions));
+  const upsert = db.prepare(`INSERT INTO roles (id, name, description, permissions_json, is_builtin) VALUES (?, ?, ?, ?, 1)
+                             ON CONFLICT (id) DO UPDATE SET name = excluded.name, description = excluded.description,
+                             permissions_json = excluded.permissions_json WHERE roles.is_builtin = 1`);
+  for (const [id, name, description, permissions] of BUILTIN_ROLES) upsert.run(id, name, description, JSON.stringify(permissions));
 }
 
 function addWorkflowColumns(db) {

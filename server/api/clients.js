@@ -177,6 +177,25 @@ export function auditedRead(db, { key, operation, params = {}, scope = READ_SCOP
 }
 
 /**
+ * Access and configuration changes must be made by a person with their own key, so the audit trail
+ * always has a verified user id for them. An outside system's key is refused here even if it holds
+ * the permission — and, like every refusal, that is audited before the error is thrown.
+ */
+export function requirePerson(db, { key, operation, params = {}, scope }, { at = defaultNow(), audit = writeAudit } = {}) {
+  const client = requireAccess(db, { key, operation, params, scope }, { at, audit });
+  if (client.kind === 'user') return client;
+  try {
+    audit(db, {
+      entityType: 'api_access', entityId: client.id, action: 'denied', actor: client.name,
+      after: { operation, params, reason: `${scope} needs a personal key, not an outside system's key` }, at,
+    });
+  } catch (err) {
+    throw new AuditUnavailableError(err);
+  }
+  throw new ForbiddenError(`${scope} with a personal key (this change must be made by a person)`);
+}
+
+/**
  * The actor text for the audit trail.
  *   - A person's key: it is them. They need not send an actor; if they do, it must be themselves,
  *     so nobody can record an action under someone else's name.

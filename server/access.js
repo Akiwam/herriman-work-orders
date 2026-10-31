@@ -39,7 +39,7 @@ const notFound = (what) => {
 // ---------- reading ----------
 
 export function getUser(db, id) {
-  const u = db.prepare('SELECT id, email, display_name, is_active, created_by, created_at FROM users WHERE id = ?').get(String(id ?? ''));
+  const u = db.prepare('SELECT id, email, display_name, is_active, created_by, created_at, version FROM users WHERE id = ?').get(String(id ?? ''));
   return u ? { ...u, is_active: u.is_active === 1, roles: rolesOf(db, u.id) } : null;
 }
 
@@ -248,5 +248,182 @@ export function revokeRole(db, { userId, roleId }, { actorUserId, now = defaultN
       before: { user_id: user.id, roles: before }, after: { user_id: user.id, roles: rolesOf(db, user.id), revoked: role.id }, at,
     });
     return { user: getUser(db, user.id), changed: true };
+  });
+}
+
+// ---------- user management (STORY-008) ----------
+
+/**
+ * The caller's copy of the user is out of date: someone else changed it. Nothing was changed.
+ * A ConflictError named UserVersionConflictError. (Made by a function, not `class … extends ConflictError`:
+ * this module and workOrders.js import each other, so ConflictError does not exist yet while this file loads.)
+ */
+export function userVersionConflict(expectedVersion, currentVersion) {
+  const err = new ConflictError(`This user has changed since you read them (you had version ${expectedVersion}, it is now version ${currentVersion}). Read them again and retry.`);
+  err.name = 'UserVersionConflictError';
+  err.currentVersion = currentVersion;
+  return err;
+}
+
+function loadForChange(db, userId, expectedVersion) {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(String(userId ?? ''));
+  if (!user) throw notFound(`user ${userId}`);
+  if (expectedVersion !== undefined && user.version !== expectedVersion) throw userVersionConflict(expectedVersion, user.version);
+  return user;
+}
+
+const publicUserRow = ({ key_hash: _h, key_prefix: _p, ...rest }) => rest; // key material never goes in the audit trail
+
+/** Change a user's email or display name. Nothing to change → changed: false, no audit entry. */
+export function updateUser(db, userId, changes, { actorUserId, expectedVersion, now = defaultNow, audit = writeAudit } = {}) {
+  return inTransaction(db, () => {
+    const actor = requirePermission(db, actorUserId, ACCESS_ADMIN);
+    const unknown = Object.keys(changes ?? {}).filter((f) => !['email', 'display_name'].includes(f));
+    if (unknown.length) throw new ValidationError(unknown.map((f) => `${f} cannot be changed here`));
+    const before = loadForChange(db, userId, expectedVersion);
+    const merged = cleanUser({ email: changes.email ?? before.email, display_name: changes.display_name ?? before.display_name });
+    const changed = ['email', 'display_name'].filter((f) => merged[f] !== before[f]);
+    if (!changed.length) return { user: getUser(db, before.id), changed: false };
+    if (changed.includes('email') && db.prepare('SELECT 1 FROM users WHERE email = ? AND id != ?').get(merged.email, before.id)) {
+      throw new ConflictError(`A user with email ${merged.email} already exists`);
+    }
+    const at = now();
+    db.prepare('UPDATE users SET email = ?, display_name = ?, version = version + 1 WHERE id = ?').run(merged.email, merged.display_name, before.id);
+    audit(db, {
+      entityType: 'user', entityId: before.id, action: 'update', actor: actor.email, actorUserId: actor.id,
+      before: publicUserRow(before), after: publicUserRow(db.prepare('SELECT * FROM users WHERE id = ?').get(before.id)), at,
+    });
+    return { user: getUser(db, before.id), changed: true };
+  });
+}
+
+/**
+ * Deactivate or reactivate a user. Deactivating removes their key, so they are refused on their very
+ * next request; reactivating does not bring the old key back — issue a new one. Nobody can deactivate
+ * themselves, and the last active system administrator cannot be deactivated.
+ */
+export function setUserActive(db, userId, active, { actorUserId, expectedVersion, now = defaultNow, audit = writeAudit } = {}) {
+  return inTransaction(db, () => {
+    const actor = requirePermission(db, actorUserId, ACCESS_ADMIN);
+    const before = loadForChange(db, userId, expectedVersion);
+    if ((before.is_active === 1) === active) return { user: getUser(db, before.id), changed: false };
+    if (!active) {
+      if (before.id === actor.id) throw new ConflictError('You cannot deactivate yourself. Ask another administrator.');
+      const isAdmin = rolesOf(db, before.id).includes(ADMIN_ROLE);
+      const admins = db.prepare(`SELECT COUNT(*) AS n FROM user_roles ur JOIN users u ON u.id = ur.user_id
+                                 WHERE ur.role_id = ? AND u.is_active = 1`).get(ADMIN_ROLE).n;
+      if (isAdmin && admins <= 1) throw new ConflictError('This is the last active system administrator and cannot be deactivated.');
+    }
+    const at = now();
+    db.prepare(`UPDATE users SET is_active = ?, version = version + 1${active ? '' : ', key_prefix = NULL, key_hash = NULL'} WHERE id = ?`)
+      .run(active ? 1 : 0, before.id);
+    audit(db, {
+      entityType: 'user', entityId: before.id, action: active ? 'reactivate' : 'deactivate', actor: actor.email, actorUserId: actor.id,
+      before: { is_active: before.is_active === 1, had_key: Boolean(before.key_hash), version: before.version },
+      // a deactivated user's key is removed; reactivating needs a new one
+      after: { is_active: active, had_key: false, version: before.version + 1 }, at,
+    });
+    return { user: getUser(db, before.id), changed: true };
+  });
+}
+
+// ---------- roles the city defines (STORY-008) ----------
+
+/** Every permission a role can include. vendor:submit is left out on purpose: it is for outside vendors only. */
+export const PERMISSIONS = [
+  'work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write',
+  'vendor:review', 'access:admin', 'audit:read', 'settings:admin',
+];
+const ROLE_ID = /^[a-z][a-z0-9_]{1,40}$/;
+
+function cleanRole(input, { partial = false } = {}) {
+  const problems = [];
+  const out = {};
+  const unknown = Object.keys(input ?? {}).filter((f) => !['id', 'name', 'description', 'permissions'].includes(f));
+  problems.push(...unknown.map((f) => `${f} is not a role field`));
+  if (!partial || input.name !== undefined) {
+    out.name = typeof input?.name === 'string' ? input.name.trim() : '';
+    if (out.name.length < 2 || out.name.length > 60) problems.push('name must be 2 to 60 characters');
+  }
+  if (!partial || input.description !== undefined) {
+    out.description = typeof input?.description === 'string' ? input.description.trim() : '';
+    if (!out.description || out.description.length > 300) problems.push('description must be 1 to 300 characters');
+  }
+  if (!partial || input.permissions !== undefined) {
+    const list = input?.permissions;
+    if (!Array.isArray(list) || !list.length) problems.push('permissions must be a list with at least one permission');
+    else {
+      for (const p of list) if (!PERMISSIONS.includes(p)) problems.push(`${String(p)} is not a permission; use ${PERMISSIONS.join(', ')}`);
+      if (new Set(list).size !== list.length) problems.push('a permission is listed twice');
+      out.permissions = [...list].sort();
+    }
+  }
+  if (problems.length) throw new ValidationError(problems);
+  return out;
+}
+
+const roleRow = (db, id) => db.prepare('SELECT * FROM roles WHERE id = ?').get(String(id ?? ''));
+const roleView = (r) => ({ id: r.id, name: r.name, description: r.description, permissions: JSON.parse(r.permissions_json), builtin: r.is_builtin === 1 });
+
+function editableRole(db, roleId) {
+  const role = roleRow(db, roleId);
+  if (!role) throw notFound(`role ${roleId}`);
+  if (role.is_builtin === 1) throw new ConflictError(`${role.name} is a built-in role and cannot be changed. Create a role of your own instead.`);
+  return role;
+}
+
+/** An administrator defines a role of their own, from the known permissions. */
+export function createRole(db, input, { actorUserId, now = defaultNow, audit = writeAudit } = {}) {
+  return inTransaction(db, () => {
+    const actor = requirePermission(db, actorUserId, ACCESS_ADMIN);
+    const fields = cleanRole(input);
+    const id = typeof input?.id === 'string' ? input.id.trim() : '';
+    if (!ROLE_ID.test(id)) throw new ValidationError(['id must be 2 to 41 lowercase letters, digits or _ and start with a letter']);
+    if (roleRow(db, id)) throw new ConflictError(`A role with id ${id} already exists`);
+    if (db.prepare('SELECT 1 FROM roles WHERE name = ?').get(fields.name)) throw new ConflictError(`A role named ${fields.name} already exists`);
+    db.prepare('INSERT INTO roles (id, name, description, permissions_json, is_builtin) VALUES (?, ?, ?, ?, 0)')
+      .run(id, fields.name, fields.description, JSON.stringify(fields.permissions));
+    const role = roleView(roleRow(db, id));
+    audit(db, { entityType: 'role', entityId: id, action: 'create', actor: actor.email, actorUserId: actor.id, after: role, at: now() });
+    return role;
+  });
+}
+
+/** Change a role of the city's own. New permissions apply to everyone holding it on their next request. */
+export function updateRole(db, roleId, changes, { actorUserId, now = defaultNow, audit = writeAudit } = {}) {
+  return inTransaction(db, () => {
+    const actor = requirePermission(db, actorUserId, ACCESS_ADMIN);
+    const before = editableRole(db, roleId);
+    if (changes && 'id' in changes) throw new ValidationError(['a role id cannot be changed']);
+    const fields = cleanRole(changes, { partial: true });
+    const merged = {
+      name: fields.name ?? before.name, description: fields.description ?? before.description,
+      permissions_json: fields.permissions ? JSON.stringify(fields.permissions) : before.permissions_json,
+    };
+    if (merged.name === before.name && merged.description === before.description && merged.permissions_json === before.permissions_json) {
+      return { role: roleView(before), changed: false };
+    }
+    if (merged.name !== before.name && db.prepare('SELECT 1 FROM roles WHERE name = ? AND id != ?').get(merged.name, before.id)) {
+      throw new ConflictError(`A role named ${merged.name} already exists`);
+    }
+    db.prepare('UPDATE roles SET name = ?, description = ?, permissions_json = ? WHERE id = ?').run(merged.name, merged.description, merged.permissions_json, before.id);
+    const role = roleView(roleRow(db, before.id));
+    audit(db, { entityType: 'role', entityId: before.id, action: 'update', actor: actor.email, actorUserId: actor.id, before: roleView(before), after: role, at: now() });
+    return { role, changed: true };
+  });
+}
+
+/** Delete a role of the city's own — only when nobody holds it and no workflow step needs it. */
+export function deleteRole(db, roleId, { actorUserId, now = defaultNow, audit = writeAudit } = {}) {
+  return inTransaction(db, () => {
+    const actor = requirePermission(db, actorUserId, ACCESS_ADMIN);
+    const role = editableRole(db, roleId);
+    const holders = db.prepare('SELECT COUNT(*) AS n FROM user_roles WHERE role_id = ?').get(role.id).n;
+    if (holders) throw new ConflictError(`${holders} user(s) still hold ${role.name}. Remove it from them first.`);
+    const steps = db.prepare('SELECT COUNT(*) AS n FROM workflow_steps WHERE required_role = ?').get(role.id).n;
+    if (steps) throw new ConflictError(`${steps} workflow step(s) require ${role.name}, so work orders on them could never move. Publish those workflows without it first.`);
+    db.prepare('DELETE FROM roles WHERE id = ?').run(role.id);
+    audit(db, { entityType: 'role', entityId: role.id, action: 'delete', actor: actor.email, actorUserId: actor.id, before: roleView(role), at: now() });
+    return { deleted: role.id };
   });
 }

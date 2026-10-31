@@ -329,6 +329,41 @@
       "title": "Built-in roles are placeholders; users cannot yet be edited or deactivated",
       "body": "The six roles and their permissions are a starting point until the city confirms its real roles, and administrators cannot define new roles yet. Editing users and deactivating them are part of user management, which is not built yet. Auditors see full before and after values, including work order details.",
       "evidence": "server/db.js (BUILTIN_ROLES); server/auditTrail.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Settings are a fixed list in code; the city chooses the values",
+      "body": "Each setting has a type, allowed range, default and description in code; the database holds only the values the city chose. Defaults equal the values the system used before, so nothing changed until an administrator changed it. Settings are read every time they are used, never cached, so a change applies across the system on the next request. Settings are shown in the API and the audit trail, so they never hold secrets; integration credentials need a separate, protected store.",
+      "evidence": "server/settings.js (SETTINGS, getSetting)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "A setting is saved with its audit entry and confirmed, or not at all",
+      "body": "A change and its audit entry (user id, time, value before and after) are written together and read back before committing; if the stored value differs from what was sent, nothing is kept and the caller gets 503 configuration_not_saved. If-Match prevents two administrators overwriting each other. A damaged stored value is never used: the default applies and the settings list reports the problem.",
+      "evidence": "server/settings.js (changeSetting); tests/settingsHttp.test.js (database does not keep what was sent)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Deactivating a user removes their key; nobody can lock the city out",
+      "body": "A deactivated user is refused on their next request because their key is removed; reactivating keeps their roles but needs a new key. Administrators cannot deactivate themselves, and the last active system administrator can be neither deactivated nor stripped of the role.",
+      "evidence": "server/access.js (setUserActive, revokeRole)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "The city can define its own roles; built-in roles stay as shipped",
+      "body": "Administrators create roles from the known permissions; a change to a role applies to everyone holding it on their next request. Built-in roles always match the code and cannot be edited. A role cannot be deleted while someone holds it or a workflow step needs it, so no work order can get stuck on a step nobody may move.",
+      "evidence": "server/access.js (createRole, updateRole, deleteRole, PERMISSIONS)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "limitation",
+      "title": "Only four settings so far, and no settings page",
+      "body": "The public rate limit, IP retention, vendor review overdue days and default heat map cell size are settings; other values (for example upload size limits and the one-hour rate-limit window) are still fixed in code. Settings, users and roles are managed through the API; there is no administrator page yet.",
+      "evidence": "server/settings.js (SETTINGS); server/api/settingsRoutes.js"
     }
   ]
 }

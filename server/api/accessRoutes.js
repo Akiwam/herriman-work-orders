@@ -9,23 +9,91 @@
 //   DELETE /api/v1/users/{id}/key              revoke their key                        (access:admin)
 //   GET    /api/v1/audit                       the audit trail, filtered               (audit:read)
 //
+// User management and the city's own roles (STORY-008), all access:admin:
+//   PATCH  /api/v1/users/{id}                  change email / display_name — If-Match: "v<version>" required
+//   POST   /api/v1/users/{id}/deactivate       refused at once on their next request; their key is removed
+//   POST   /api/v1/users/{id}/reactivate       active again; issue them a new key
+//   POST   /api/v1/roles                       define a role: { id, name, description, permissions }
+//   PATCH  /api/v1/roles/{id}                  change one of the city's roles (built-in roles cannot change)
+//   DELETE /api/v1/roles/{id}                  delete one, if nobody holds it and no workflow step needs it
+//
 // Access changes must be made by a person, with their own key: an outside system's key is refused
 // even if it was given access:admin, so every access change has a verified user id in the audit trail.
 // The functions in server/access.js check the permission again, so the rule holds outside HTTP too.
 
 import { send, readJsonBody } from './http.js';
-import { requireAccess, auditedRead, ForbiddenError } from './clients.js';
+import { requirePerson, auditedRead } from './clients.js';
 import { ValidationError, NotFoundError } from '../workOrders.js';
 import {
   createUser, grantRole, revokeRole, issueUserKey, revokeUserKey, listRoles, getUser, ACCESS_ADMIN, AUDIT_READ,
+  updateUser, setUserActive, createRole, updateRole, deleteRole,
 } from '../access.js';
 import { listAuditEntries } from '../auditTrail.js';
 
 export const USER_FIELDS = ['email', 'display_name'];
 export const GRANT_FIELDS = ['role_id'];
-const USERS = /^\/api\/v1\/users(?:\/([^/]+)(?:\/(roles|key)(?:\/([^/]+))?)?)?$/;
+export const ROLE_FIELDS = ['id', 'name', 'description', 'permissions'];
+const USERS = /^\/api\/v1\/users(?:\/([^/]+)(?:\/(roles|key|deactivate|reactivate)(?:\/([^/]+))?)?)?$/;
+const ROLES = /^\/api\/v1\/roles(?:\/([^/]+))?$/;
 
-export const isAccessPath = (pathname) => pathname === '/api/v1/roles' || pathname === '/api/v1/audit' || USERS.test(pathname);
+export const isAccessPath = (pathname) => pathname === '/api/v1/audit' || ROLES.test(pathname) || USERS.test(pathname);
+
+const userEtag = (user) => ({ ETag: `"v${user.version}"` });
+
+/** The version from If-Match. Missing: undefined if optional, or null (with 428 sent) if required. */
+function ifMatch(req, res, required) {
+  const header = req.headers['if-match'];
+  if (header === undefined || header === '') {
+    if (!required) return undefined;
+    send(res, 428, { error: 'precondition_required', message: 'This change needs an If-Match header with the version you last read, e.g. If-Match: "v2". Read the user first.' });
+    return null;
+  }
+  const m = /^(?:W\/)?"v(\d+)"$/.exec(String(header).trim());
+  if (!m) throw new ValidationError(['If-Match must look like "v2" — the ETag from your last read']);
+  return Number(m[1]);
+}
+
+/** Run a user change; a stale If-Match gets 412 with the current user. */
+function sendUserChange(res, db, userId, change) {
+  try {
+    const { user, changed } = change();
+    send(res, 200, { item: user, changed }, userEtag(user));
+  } catch (err) {
+    if (err.name !== 'UserVersionConflictError') throw err;
+    const current = getUser(db, userId);
+    send(res, 412, { error: 'precondition_failed', message: err.message, current }, userEtag(current));
+  }
+}
+
+async function handleRoles(req, res, db, roleId, { key, opts }) {
+  if (!roleId) {
+    if (req.method === 'GET') {
+      send(res, 200, auditedRead(db, { key, operation: 'listRoles', scope: ACCESS_ADMIN }, () => ({ items: listRoles(db) }), opts));
+      return;
+    }
+    if (req.method !== 'POST') return methodNotAllowed(res, 'GET, POST');
+    const actorUserId = administrator(db, key, 'createRole', {});
+    const body = await readJsonBody(req);
+    onlyFields(body, ROLE_FIELDS);
+    const role = createRole(db, body, { actorUserId, ...opts });
+    send(res, 201, { item: role }, { Location: `/api/v1/roles/${role.id}` });
+    return;
+  }
+  if (req.method === 'PATCH') {
+    const actorUserId = administrator(db, key, 'updateRole', { role_id: roleId });
+    const body = await readJsonBody(req);
+    onlyFields(body, ROLE_FIELDS.filter((f) => f !== 'id'));
+    const { role, changed } = updateRole(db, roleId, body, { actorUserId, ...opts });
+    send(res, 200, { item: role, changed });
+    return;
+  }
+  if (req.method === 'DELETE') {
+    const actorUserId = administrator(db, key, 'deleteRole', { role_id: roleId });
+    send(res, 200, deleteRole(db, roleId, { actorUserId, ...opts }));
+    return;
+  }
+  methodNotAllowed(res, 'PATCH, DELETE');
+}
 
 function onlyFields(body, allowed) {
   const problems = Object.keys(body).filter((f) => !allowed.includes(f)).map((f) => `${f} is not a field this endpoint accepts`);
@@ -34,9 +102,7 @@ function onlyFields(body, allowed) {
 
 /** The person making an access change. A system key is refused: access changes need a verified person. */
 function administrator(db, key, operation, params) {
-  const client = requireAccess(db, { key, operation, params, scope: ACCESS_ADMIN });
-  if (client.kind !== 'user') throw new ForbiddenError(`${ACCESS_ADMIN} with a personal key (access changes must be made by a person)`);
-  return client.user_id;
+  return requirePerson(db, { key, operation, params, scope: ACCESS_ADMIN }).user_id;
 }
 
 function methodNotAllowed(res, allowed) {
@@ -52,9 +118,9 @@ export async function handleAccess(req, res, db, url, { key, now } = {}) {
     send(res, 200, auditedRead(db, { key, operation: 'readAuditTrail', params, scope: AUDIT_READ }, () => listAuditEntries(db, params), opts));
     return;
   }
-  if (url.pathname === '/api/v1/roles') {
-    if (req.method !== 'GET') return methodNotAllowed(res, 'GET');
-    send(res, 200, auditedRead(db, { key, operation: 'listRoles', scope: ACCESS_ADMIN }, () => ({ items: listRoles(db) }), opts));
+  const roles = ROLES.exec(url.pathname);
+  if (roles) {
+    await handleRoles(req, res, db, roles[1] ? decodeURIComponent(roles[1]) : null, { key, opts });
     return;
   }
 
@@ -111,15 +177,32 @@ export async function handleAccess(req, res, db, url, { key, now } = {}) {
     return methodNotAllowed(res, 'POST, DELETE');
   }
 
+  if ((sub === 'deactivate' || sub === 'reactivate') && !roleId) {
+    if (req.method !== 'POST') return methodNotAllowed(res, 'POST');
+    const actorUserId = administrator(db, key, `${sub}User`, { user_id: userId });
+    const expectedVersion = ifMatch(req, res, false); // optional: repeating a deactivation is harmless
+    sendUserChange(res, db, userId, () => setUserActive(db, userId, sub === 'reactivate', { actorUserId, expectedVersion, ...opts }));
+    return;
+  }
+
   if (sub || roleId) {
     send(res, 404, { error: 'not_found', message: `No endpoint at ${url.pathname}` });
     return;
   }
-  if (req.method !== 'GET') return methodNotAllowed(res, 'GET');
+  if (req.method === 'PATCH') {
+    const actorUserId = administrator(db, key, 'updateUser', { user_id: userId });
+    const expectedVersion = ifMatch(req, res, true);
+    if (expectedVersion === null) return;
+    const body = await readJsonBody(req);
+    onlyFields(body, USER_FIELDS);
+    sendUserChange(res, db, userId, () => updateUser(db, userId, body, { actorUserId, expectedVersion, ...opts }));
+    return;
+  }
+  if (req.method !== 'GET') return methodNotAllowed(res, 'GET, PATCH');
   const body = auditedRead(db, { key, operation: 'getUser', params: { id: userId }, scope: ACCESS_ADMIN }, () => {
     const user = getUser(db, userId);
     if (!user) throw Object.assign(new NotFoundError(userId), { message: `No user ${userId}` });
     return { item: user };
   }, opts);
-  send(res, 200, body);
+  send(res, 200, body, userEtag(body.item));
 }

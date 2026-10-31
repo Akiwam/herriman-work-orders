@@ -566,7 +566,8 @@
         },
         {
           "name": "is_active",
-          "type": "boolean"
+          "type": "boolean",
+          "note": "deactivating removes the personal key"
         },
         {
           "name": "key_prefix",
@@ -586,6 +587,11 @@
         {
           "name": "created_at",
           "type": "timestamptz"
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "note": "+1 on every change; for If-Match"
         }
       ],
       "relationships": [
@@ -598,7 +604,7 @@
     },
     {
       "name": "role",
-      "purpose": "A named set of permissions (the same names API client scopes use). Built as the roles table, with six placeholder built-in roles.",
+      "purpose": "A named set of permissions (the same names API client scopes use). Built as the roles table: six placeholder built-in roles that cannot be edited, plus roles the city defines.",
       "requirements": [
         "REQ-047"
       ],
@@ -734,7 +740,7 @@
     },
     {
       "name": "system_setting",
-      "purpose": "A configuration value administrators can change, with who changed it.",
+      "purpose": "A configuration value administrators can change, with who changed it. Built as the system_settings table; which settings exist, with their ranges and defaults, is defined in code. Never holds secrets.",
       "requirements": [
         "REQ-047"
       ],
@@ -742,11 +748,17 @@
         {
           "name": "key",
           "type": "text",
-          "note": "primary key"
+          "note": "primary key, e.g. public.rate_limit_per_hour"
         },
         {
           "name": "value",
-          "type": "jsonb"
+          "type": "jsonb",
+          "note": "stored as value_json; null means the default"
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "note": "+1 on every change"
         },
         {
           "name": "updated_by",

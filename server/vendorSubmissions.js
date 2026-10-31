@@ -9,6 +9,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { inTransaction } from './db.js';
 import { writeAudit, ValidationError, ConflictError, NotFoundError } from './workOrders.js';
+import { getSetting } from './settings.js';
 
 export const COMPLIANCE_VALUES = ['complies', 'partially_complies', 'does_not_comply'];
 const APPROACH_LIMITS = [20, 10000];
@@ -264,7 +265,7 @@ export function submitCompliance(db, vendor, input, { now = defaultNow, audit = 
 export const REVIEW_DECISIONS = ['approve', 'request_changes'];
 
 // PLACEHOLDER: how long a submission may wait for review before it is flagged, until the city sets a rule.
-export const REVIEW_OVERDUE_DAYS = 5;
+export const REVIEW_OVERDUE_DAYS = 5; // built-in default; administrators change it with the setting vendor.review_overdue_days
 
 /**
  * A city reviewer approves a submission or asks the vendor for changes. Audited.
@@ -298,7 +299,7 @@ export function reviewSubmission(db, id, { reviewer, decision, comment = null },
 }
 
 /** Every submission waiting for review, oldest first, with how long it has waited and whether it is overdue. */
-export function reviewQueue(db, { now = defaultNow, overdueDays = REVIEW_OVERDUE_DAYS } = {}) {
+export function reviewQueue(db, { now = defaultNow, overdueDays = getSetting(db, 'vendor.review_overdue_days') } = {}) {
   const nowMs = Date.parse(now());
   return db.prepare("SELECT * FROM vendor_submissions WHERE status = 'submitted' ORDER BY submitted_at, id").all().map((s) => {
     const waitingDays = Math.floor((nowMs - Date.parse(s.submitted_at)) / (24 * 60 * 60 * 1000));

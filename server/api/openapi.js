@@ -5,8 +5,10 @@ import { WORK_ORDER_FIELDS, SCHEMA_VERSION } from './workOrderFeed.js';
 import { RESPONSE_CODES } from '../locateTickets.js';
 import { BODIES } from './workOrderWrites.js';
 import { WORKFLOW_FIELDS, STEP_FIELDS } from './workflowRoutes.js';
-import { USER_FIELDS, GRANT_FIELDS } from './accessRoutes.js';
+import { USER_FIELDS, GRANT_FIELDS, ROLE_FIELDS } from './accessRoutes.js';
+import { PERMISSIONS } from '../access.js';
 import { AUDIT_FILTERS } from '../auditTrail.js';
+import { SETTINGS } from '../settings.js';
 import { SUBMISSION_FIELDS, REVIEW_FIELDS } from './vendorRoutes.js';
 import { FORMATS as HEAT_MAP_FORMATS, STATUSES as HEAT_MAP_STATUSES, CELL_SIZE as HEAT_MAP_CELL } from '../heatMaps.js';
 import { COMPLIANCE_VALUES, REVIEW_DECISIONS, MAX_DOCUMENTS, MAX_DOCUMENT_BYTES } from '../vendorSubmissions.js';
@@ -70,6 +72,17 @@ const ACCESS_FIELD_SCHEMAS = {
   display_name: { type: 'string', minLength: 2, maxLength: 100 },
   role_id: { type: 'string', description: 'One of GET /roles, e.g. field_crew' },
 };
+const ROLE_FIELD_SCHEMAS = {
+  id: { type: 'string', pattern: '^[a-z][a-z0-9_]{1,40}$', description: 'Cannot be changed later, e.g. inspector' },
+  name: { type: 'string', minLength: 2, maxLength: 60 },
+  description: { type: 'string', minLength: 1, maxLength: 300 },
+  permissions: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string', enum: PERMISSIONS } },
+};
+const roleBody = (fields, required) => ({
+  required: true,
+  content: { 'application/json': { schema: { type: 'object', additionalProperties: false, required, properties: Object.fromEntries(fields.map((f) => [f, ROLE_FIELD_SCHEMAS[f]])) } } },
+});
+const userIfMatch = (required) => ({ name: 'If-Match', in: 'header', required, schema: { type: 'string', example: '"v2"' }, description: 'The ETag from GET /users/{id}' });
 const accessBody = (fields) => ({
   required: true,
   content: { 'application/json': { schema: { type: 'object', additionalProperties: false, required: fields, properties: Object.fromEntries(fields.map((f) => [f, ACCESS_FIELD_SCHEMAS[f]])) } } },
@@ -278,6 +291,23 @@ export function openApiDocument() {
       },
       '/roles': {
         get: { summary: 'The roles and their permissions (access:admin)', responses: { 200: { description: 'OK' }, ...accessErrors } },
+        post: {
+          summary: 'Define a role of the city\'s own from the known permissions (access:admin, personal key)',
+          requestBody: roleBody(ROLE_FIELDS, ROLE_FIELDS),
+          responses: { 201: { description: 'Created' }, 409: { description: 'A role with this id or name exists' }, ...accessErrors },
+        },
+      },
+      '/roles/{id}': {
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        patch: {
+          summary: 'Change a role of the city\'s own. New permissions apply to everyone holding it on their next request (access:admin, personal key)',
+          requestBody: roleBody(ROLE_FIELDS.filter((f) => f !== 'id'), []),
+          responses: { 200: { description: 'Changed (changed: true) or already so' }, 409: { description: 'A built-in role, or the name is taken' }, ...accessErrors },
+        },
+        delete: {
+          summary: 'Delete a role of the city\'s own (access:admin, personal key)',
+          responses: { 200: { description: 'Deleted' }, 409: { description: 'A built-in role, someone still holds it, or a workflow step requires it' }, ...accessErrors },
+        },
       },
       '/users': {
         get: { summary: 'Every user with their roles (access:admin)', responses: { 200: { description: 'OK' }, ...accessErrors } },
@@ -288,7 +318,27 @@ export function openApiDocument() {
         },
       },
       '/users/{id}': {
-        get: { summary: 'One user with their roles (access:admin)', parameters: [userId], responses: { 200: { description: 'OK' }, ...accessErrors } },
+        get: { summary: 'One user with their roles; their version is the ETag (access:admin)', parameters: [userId], responses: { 200: { description: 'OK' }, ...accessErrors } },
+        patch: {
+          summary: 'Change a user\'s email or display name (access:admin, personal key)',
+          parameters: [userId, userIfMatch(true)],
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', additionalProperties: false, properties: Object.fromEntries(USER_FIELDS.map((f) => [f, ACCESS_FIELD_SCHEMAS[f]])) } } } },
+          responses: { 200: { description: 'Changed, or already so' }, 409: { description: 'The email is taken' }, 412: { description: 'Changed since you read it; the body has the current user' }, 428: { description: 'If-Match was not sent' }, ...accessErrors },
+        },
+      },
+      '/users/{id}/deactivate': {
+        post: {
+          summary: 'Deactivate a user: refused from their next request, and their key is removed (access:admin, personal key)',
+          parameters: [userId, userIfMatch(false)],
+          responses: { 200: { description: 'Deactivated, or already so' }, 409: { description: 'Yourself, or the last active system administrator' }, 412: { description: 'Changed since you read it' }, ...accessErrors },
+        },
+      },
+      '/users/{id}/reactivate': {
+        post: {
+          summary: 'Reactivate a user. Their old key does not come back: issue a new one (access:admin, personal key)',
+          parameters: [userId, userIfMatch(false)],
+          responses: { 200: { description: 'Reactivated, or already active' }, 412: { description: 'Changed since you read it' }, ...accessErrors },
+        },
       },
       '/users/{id}/roles': {
         post: {
@@ -325,6 +375,40 @@ export function openApiDocument() {
             403: { description: 'Needs audit:read' },
             503: { description: 'The read could not be audited, so nothing was returned' },
           },
+        },
+      },
+      '/settings': {
+        get: {
+          summary: 'Every system setting with its value, default, range, version and who changed it last (settings:admin)',
+          description: `Settings: ${Object.keys(SETTINGS).join(', ')}. A change applies across the system on the next request. Settings never hold secrets.`,
+          responses: { 200: { description: 'OK' }, 401: { description: 'Missing or invalid API key' }, 403: { description: 'Needs settings:admin' } },
+        },
+      },
+      '/settings/{key}': {
+        parameters: [{ name: 'key', in: 'path', required: true, schema: { type: 'string', enum: Object.keys(SETTINGS) } }],
+        get: {
+          summary: 'One setting; its version is the ETag (settings:admin)',
+          responses: { 200: { description: 'OK', headers: { ETag: { schema: { type: 'string' }, description: 'e.g. "v2"; send back as If-Match to change it' } } }, 404: { description: 'No such setting' } },
+        },
+        put: {
+          summary: 'Change a setting (settings:admin, with a personal key)',
+          parameters: [{ name: 'If-Match', in: 'header', required: true, schema: { type: 'string', example: '"v2"' } }],
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', additionalProperties: false, required: ['value'], properties: { value: { description: 'Must fit the type and range of the setting (see GET)' } } } } } },
+          responses: {
+            200: { description: 'Saved and confirmed (changed: true), or already that value (changed: false)' },
+            400: { description: 'Out of range, wrong type or unknown field; problems lists every issue' },
+            401: { description: 'Missing or invalid API key' },
+            403: { description: 'Needs settings:admin, used with a personal key' },
+            404: { description: 'No such setting' },
+            412: { description: 'Someone changed it since you read it; the body has the current setting' },
+            428: { description: 'If-Match was not sent' },
+            503: { description: 'The change could not be confirmed as saved, or the audit trail is unavailable; nothing was changed' },
+          },
+        },
+        delete: {
+          summary: 'Reset a setting to its default (settings:admin, with a personal key)',
+          parameters: [{ name: 'If-Match', in: 'header', required: true, schema: { type: 'string', example: '"v2"' } }],
+          responses: { 200: { description: 'Reset (changed: true), or already the default' }, 403: { description: 'Needs settings:admin, used with a personal key' }, 412: { description: 'Changed since you read it' }, 428: { description: 'If-Match was not sent' } },
         },
       },
       '/work-orders/changes': {

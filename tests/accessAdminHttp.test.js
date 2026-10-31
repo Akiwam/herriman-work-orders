@@ -96,7 +96,7 @@ test('without access:admin — or with only a system key — access cannot be ch
   assert.equal((await call('GET', '/users', { key: null })).status, 401);
 
   const denied = db.prepare("SELECT after_json, actor_user_id FROM audit_entries WHERE entity_type = 'api_access' AND action = 'denied' ORDER BY id").all();
-  assert.deepEqual(denied.map((d) => JSON.parse(d.after_json).operation), ['grantRole', 'createUser', 'listUsers', 'listUsers']);
+  assert.deepEqual(denied.map((d) => JSON.parse(d.after_json).operation), ['grantRole', 'createUser', 'listUsers', 'grantRole', 'listUsers'], 'the system key refusal is audited too');
   assert.equal(denied[0].actor_user_id, sam.id);
   assert.deepEqual(db.prepare('SELECT role_id FROM user_roles WHERE user_id = ?').all(sam.id).map((r) => r.role_id), ['field_crew']);
 });

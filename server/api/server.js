@@ -10,6 +10,7 @@
 //
 // Workflows (STORY-006) — see workflowRoutes.js; transitions are in workOrderWrites.js.
 // Users, roles and the audit trail (STORY-007) — see accessRoutes.js.
+// System settings (STORY-008) — see settingsRoutes.js.
 //
 // Locate tickets from the one-call centre (STORY-013) — needs scope locate_tickets:write:
 //   GET   /api/v1/locate-tickets/{id}            view a ticket
@@ -29,6 +30,8 @@ import {
 } from './clients.js';
 import { runRequest } from '../requestContext.js';
 import { handleAccess, isAccessPath } from './accessRoutes.js';
+import { handleSettings, SETTINGS_BASE } from './settingsRoutes.js';
+import { SettingNotSavedError } from '../settings.js';
 import { AccessDeniedError } from '../access.js';
 import { writeAudit } from '../workOrders.js';
 import { currentUserId } from '../requestContext.js';
@@ -154,6 +157,10 @@ export function createApiServer(db, { now, bluestakes = null, gis = null, reques
         await handleVendor(req, res, db, url, { key: bearerKey(req), now });
         return;
       }
+      if (url.pathname === SETTINGS_BASE || url.pathname.startsWith(`${SETTINGS_BASE}/`)) {
+        await handleSettings(req, res, db, url, { key: bearerKey(req), now });
+        return;
+      }
       if (isAccessPath(url.pathname)) {
         await handleAccess(req, res, db, url, { key: bearerKey(req), now });
         return;
@@ -192,6 +199,7 @@ export function createApiServer(db, { now, bluestakes = null, gis = null, reques
         console.error('API: response failed the published format check', err);
         send(res, 500, { error: 'response_format_error', message: 'Our response did not match the published format, so it was not sent.' });
       }
+      else if (err instanceof SettingNotSavedError) send(res, 503, { error: 'configuration_not_saved', message: err.message }, { 'Retry-After': '5' });
       else if (err instanceof AccessDeniedError) {
         // Refused deeper in (e.g. a workflow step that needs a role). The change was rolled back, so the
         // refusal is audited here, afterwards; if even that cannot be written, say so rather than hide it.
