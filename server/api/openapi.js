@@ -5,6 +5,8 @@ import { WORK_ORDER_FIELDS, SCHEMA_VERSION } from './workOrderFeed.js';
 import { RESPONSE_CODES } from '../locateTickets.js';
 import { BODIES } from './workOrderWrites.js';
 import { WORKFLOW_FIELDS, STEP_FIELDS } from './workflowRoutes.js';
+import { USER_FIELDS, GRANT_FIELDS } from './accessRoutes.js';
+import { AUDIT_FILTERS } from '../auditTrail.js';
 import { SUBMISSION_FIELDS, REVIEW_FIELDS } from './vendorRoutes.js';
 import { FORMATS as HEAT_MAP_FORMATS, STATUSES as HEAT_MAP_STATUSES, CELL_SIZE as HEAT_MAP_CELL } from '../heatMaps.js';
 import { COMPLIANCE_VALUES, REVIEW_DECISIONS, MAX_DOCUMENTS, MAX_DOCUMENT_BYTES } from '../vendorSubmissions.js';
@@ -53,6 +55,7 @@ const STEP_FIELD_SCHEMAS = {
   name: { type: 'string' },
   next: { type: 'array', items: { type: 'string' }, description: 'Step keys it may move to. Empty only for the final step.' },
   final: { type: 'boolean', description: 'Reaching it completes the work order (which needs a note).' },
+  role: { type: ['string', 'null'], description: 'Only people holding this role (with their own key) may move a work order onto this step, or complete it if final. Not allowed on the first step.' },
 };
 const workflowErrors = {
   401: { description: 'Missing or invalid API key' },
@@ -60,6 +63,35 @@ const workflowErrors = {
   503: { description: 'Database or audit trail unavailable; retry later' },
 };
 const workflowKey = { name: 'key', in: 'path', required: true, schema: { type: 'string' } };
+
+// Users, roles and the audit trail (STORY-007).
+const ACCESS_FIELD_SCHEMAS = {
+  email: { type: 'string', format: 'email' },
+  display_name: { type: 'string', minLength: 2, maxLength: 100 },
+  role_id: { type: 'string', description: 'One of GET /roles, e.g. field_crew' },
+};
+const accessBody = (fields) => ({
+  required: true,
+  content: { 'application/json': { schema: { type: 'object', additionalProperties: false, required: fields, properties: Object.fromEntries(fields.map((f) => [f, ACCESS_FIELD_SCHEMAS[f]])) } } },
+});
+const accessErrors = {
+  400: { description: 'Invalid data or an unknown field' },
+  401: { description: 'Missing or invalid API key' },
+  403: { description: "Needs access:admin, with a person's own key (outside systems cannot change access)" },
+  404: { description: 'No such user or role' },
+  503: { description: 'Database or audit trail unavailable; nothing was changed' },
+};
+const userId = { name: 'id', in: 'path', required: true, schema: { type: 'string' } };
+const AUDIT_FILTER_SCHEMAS = {
+  user_id: { type: 'string', description: 'The verified user who acted' },
+  entity_type: { type: 'string', example: 'work_order' },
+  entity_id: { type: 'string' },
+  action: { type: 'string', example: 'grant' },
+  from: { type: 'string', format: 'date-time', description: 'On or after' },
+  to: { type: 'string', format: 'date-time', description: 'Before' },
+  limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+  cursor: { type: 'string', description: 'next_cursor from the previous page' },
+};
 
 const vendorId = { name: 'id', in: 'path', required: true, schema: { type: 'string' } };
 
@@ -73,7 +105,8 @@ function bodySchema(spec) {
     properties[field] = base === 'array' ? { type: 'array', items: { type: 'string' } } : { type: base };
     if (!optional) required.push(field);
   }
-  properties.actor.description = 'The person or process acting; recorded in the audit trail with the calling system.';
+  properties.actor.description = 'The person or process acting; recorded in the audit trail with the calling system. '
+    + "Required with an outside system's key (hwo_…). With a person's own key (hwu_…) it may be left out — the key says who they are — and if sent it must be them.";
   return { type: 'object', additionalProperties: false, required, properties };
 }
 
@@ -241,6 +274,57 @@ export function openApiDocument() {
           parameters: [workflowKey],
           requestBody: jsonBody({ actor }, ['actor']),
           responses: { 200: { description: 'Retired' }, 404: { description: 'No active workflow with this key' }, 409: { description: 'Standard cannot be retired' }, ...workflowErrors },
+        },
+      },
+      '/roles': {
+        get: { summary: 'The roles and their permissions (access:admin)', responses: { 200: { description: 'OK' }, ...accessErrors } },
+      },
+      '/users': {
+        get: { summary: 'Every user with their roles (access:admin)', responses: { 200: { description: 'OK' }, ...accessErrors } },
+        post: {
+          summary: 'Add a user. They can do nothing until a role is granted (access:admin, personal key)',
+          requestBody: accessBody(USER_FIELDS),
+          responses: { 201: { description: 'Added' }, 409: { description: 'A user with this email already exists' }, ...accessErrors },
+        },
+      },
+      '/users/{id}': {
+        get: { summary: 'One user with their roles (access:admin)', parameters: [userId], responses: { 200: { description: 'OK' }, ...accessErrors } },
+      },
+      '/users/{id}/roles': {
+        post: {
+          summary: 'Grant a role. Takes effect on their next request; granting one they have changes nothing (access:admin, personal key)',
+          parameters: [userId],
+          requestBody: accessBody(GRANT_FIELDS),
+          responses: { 200: { description: 'Granted (changed: true) or already held (changed: false)' }, 409: { description: 'The user is deactivated' }, ...accessErrors },
+        },
+      },
+      '/users/{id}/roles/{role_id}': {
+        delete: {
+          summary: 'Remove a role. Takes effect on their next request (access:admin, personal key)',
+          parameters: [userId, { name: 'role_id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Removed (changed: true) or not held (changed: false)' }, 409: { description: 'The last active system administrator cannot lose the role' }, ...accessErrors },
+        },
+      },
+      '/users/{id}/key': {
+        post: {
+          summary: 'Issue a personal key, replacing any earlier one (access:admin, personal key)',
+          description: 'The key is in this response only (Cache-Control: no-store) and cannot be shown again. Only a hash is stored.',
+          parameters: [userId],
+          responses: { 201: { description: 'Issued' }, 409: { description: 'The user is deactivated' }, ...accessErrors },
+        },
+        delete: { summary: 'Revoke their personal key (access:admin, personal key)', parameters: [userId], responses: { 200: { description: 'Revoked (changed: true) or had none' }, ...accessErrors } },
+      },
+      '/audit': {
+        get: {
+          summary: 'The audit trail, oldest first, a page at a time (audit:read). Reading it is itself audited.',
+          parameters: AUDIT_FILTERS.map((f) => ({ name: f, in: 'query', schema: AUDIT_FILTER_SCHEMAS[f] })),
+          responses: {
+            200: { description: 'items: entries with who (actor, actor_user_id), what, when, before and after; next_cursor' },
+            400: { description: 'Unknown filter or bad value' },
+            401: { description: 'Missing or invalid API key' },
+            403: { description: 'Needs audit:read' },
+            503: { description: 'The read could not be audited, so nothing was returned' },
+          },
         },
       },
       '/work-orders/changes': {

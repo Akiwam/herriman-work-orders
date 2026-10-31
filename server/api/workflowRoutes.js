@@ -10,7 +10,7 @@
 // Publishing and retiring are audited with "<actor> via <system>".
 
 import { send, readJsonBody } from './http.js';
-import { requireAccess, auditedRead, READ_SCOPE, WORKFLOWS_ADMIN_SCOPE } from './clients.js';
+import { requireAccess, auditedRead, actorFor, READ_SCOPE, WORKFLOWS_ADMIN_SCOPE } from './clients.js';
 import { ValidationError, NotFoundError } from '../workOrders.js';
 import { publishWorkflow, retireWorkflow, listWorkflows, getActiveWorkflow, getWorkflow } from '../workflows.js';
 
@@ -19,12 +19,7 @@ const ONE = new RegExp(`^${WORKFLOWS_BASE}/([^/]+)(?:/(retire))?$`);
 
 // What each body may contain; also the source of the OpenAPI request bodies.
 export const WORKFLOW_FIELDS = ['actor', 'key', 'name', 'work_type', 'steps'];
-export const STEP_FIELDS = ['key', 'name', 'next', 'final'];
-
-function actingAs(body, client) {
-  if (typeof body.actor !== 'string' || !body.actor.trim()) throw new ValidationError(['actor is required']);
-  return `${body.actor.trim()} via ${client.name}`;
-}
+export const STEP_FIELDS = ['key', 'name', 'next', 'final', 'role'];
 
 function unknownFields(body) {
   const problems = Object.keys(body).filter((f) => !WORKFLOW_FIELDS.includes(f)).map((f) => `${f} is not a field this endpoint accepts`);
@@ -40,7 +35,7 @@ function unknownFields(body) {
 const view = (wf) => ({
   id: wf.id, key: wf.workflow_key, version: wf.version, name: wf.name, work_type: wf.work_type, status: wf.status,
   created_by: wf.created_by, created_at: wf.created_at,
-  steps: wf.steps.map((s) => ({ key: s.key, name: s.name, next: s.next, final: s.final })),
+  steps: wf.steps.map((s) => ({ key: s.key, name: s.name, next: s.next, final: s.final, role: s.role ?? null })),
 });
 
 export async function handleWorkflows(req, res, db, url, { key, now } = {}) {
@@ -81,13 +76,13 @@ export async function handleWorkflows(req, res, db, url, { key, now } = {}) {
     const body = await readJsonBody(req);
     const extra = Object.keys(body).filter((f) => f !== 'actor').map((f) => `${f} is not a field this endpoint accepts`);
     if (extra.length) throw new ValidationError(extra);
-    send(res, 200, { item: view(retireWorkflow(db, wfKey, { actor: actingAs(body, client), ...opts })) });
+    send(res, 200, { item: view(retireWorkflow(db, wfKey, { actor: actorFor(body, client, db), ...opts })) });
     return;
   }
 
   const client = requireAccess(db, { key, operation: 'publishWorkflow', scope: WORKFLOWS_ADMIN_SCOPE });
   const body = await readJsonBody(req);
-  const actor = actingAs(body, client);
+  const actor = actorFor(body, client, db);
   const { actor: _actor, ...definition } = body;
   try {
     const shapeProblems = unknownFields(body);

@@ -294,6 +294,41 @@
       "title": "Step-by-step permissions wait for role-based access",
       "body": "Any key with work_orders:write can move a work order to any allowed next step. A required role per step is stored but not enforced until roles and users exist. Step names are not shown on the public site (only \"Progress update\"), and refused workflow definitions are in the request log, not the audit trail, because nothing changed.",
       "evidence": "server/db.js (workflow_steps.required_role); server/publicRequests.js (HISTORY_LABELS)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "People sign in with personal keys; their roles decide what the key can do",
+      "body": "Each staff user gets a personal key (hwu_..., shown once, stored only as a hash). Its permissions are the union of the user's roles, re-read on every request, so granting or removing a role takes effect immediately. Roles use the same permission names as outside systems' keys, so every endpoint checks access the same way. Password or single sign-on login needs the city's identity system and is not built.",
+      "evidence": "server/access.js (issueUserKey, permissionsFor); server/api/clients.js (authenticate)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "The audit trail records the verified user, not a name the caller typed",
+      "body": "Every audit entry written while handling a person's request carries their user id from the key. A person who sends someone else's name as actor is refused and the attempt is audited. Outside systems still name who is acting, recorded as \"name via system\" with no user id.",
+      "evidence": "server/requestContext.js; server/api/clients.js (actorFor); tests/accessHttp.test.js"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Access changes need a person, and the city can never be locked out",
+      "body": "Adding users, granting or removing roles and issuing keys need access:admin with a person's own key; an outside system's key is refused even if given that permission. The last active system administrator cannot lose the role. The first administrator is created once with npm run admin:bootstrap, which refuses if one exists.",
+      "evidence": "server/api/accessRoutes.js (administrator); server/access.js (revokeRole, bootstrapAdministrator)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "decision",
+      "title": "Access checks fail closed",
+      "body": "If a user's roles cannot be read, the user is unknown or deactivated, the answer is no access. Refusals are audited, including ones decided inside a change (such as a workflow step that needs a role), and if a refusal cannot be audited the request gets 503 rather than going unrecorded.",
+      "evidence": "server/access.js (permissionsFor); server/api/server.js (AccessDeniedError)"
+    },
+    {
+      "date": "2026-10-30",
+      "kind": "limitation",
+      "title": "Built-in roles are placeholders; users cannot yet be edited or deactivated",
+      "body": "The six roles and their permissions are a starting point until the city confirms its real roles, and administrators cannot define new roles yet. Editing users and deactivating them are part of user management, which is not built yet. Auditors see full before and after values, including work order details.",
+      "evidence": "server/db.js (BUILTIN_ROLES); server/auditTrail.js"
     }
   ]
 }

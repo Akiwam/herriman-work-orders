@@ -15,6 +15,8 @@ import { inTransaction } from './db.js';
 import {
   writeAudit, getWorkOrder, ValidationError, ConflictError, NotFoundError, VersionConflictError,
 } from './workOrders.js';
+import { AccessDeniedError, rolesOf } from './access.js';
+import { currentUserId } from './requestContext.js';
 // workOrders.js imports this module too; that is safe because neither uses the other's exports until a function runs.
 
 export const STANDARD_KEY = 'standard';
@@ -46,7 +48,8 @@ function reachableFrom(from, nextOf) {
 
 /**
  * Problems with a workflow definition; an empty list means it is safe to publish.
- * Definition: { key, name, work_type, steps: [{ key, name, next: [stepKey…], final? }] } — the first step is where work orders start.
+ * Definition: { key, name, work_type, steps: [{ key, name, next: [stepKey…], final?, role? }] } — the first step is where work orders start.
+ * `role` (STORY-007) means only people holding that role may move a work order onto the step (or, for the final step, complete it).
  */
 export function validateWorkflow(def) {
   if (def === null || typeof def !== 'object' || Array.isArray(def)) return ['the workflow must be an object'];
@@ -72,7 +75,9 @@ export function validateWorkflow(def) {
     else if (names.has(name.toLowerCase())) problems.push(`${label}: step name "${name}" is used twice`);
     else names.add(name.toLowerCase());
     if (!Array.isArray(s?.next) || !s.next.every((n) => typeof n === 'string')) problems.push(`${label}: next must be a list of step keys`);
+    if (s?.role !== undefined && s.role !== null && (typeof s.role !== 'string' || !KEY_PATTERN.test(s.role))) problems.push(`${label}: role must be a role id, e.g. supervisor`);
   }
+  if (steps[0]?.role) problems.push('the first step cannot require a role: every work order starts there');
   if (problems.length) return problems;
 
   const finals = steps.filter((s) => s.final === true);
@@ -101,7 +106,7 @@ export function validateWorkflow(def) {
 
 /** Fingerprint of the steps exactly as they will be stored. */
 function fingerprint(def) {
-  const steps = def.steps.map((s) => [s.key, s.name.trim(), [...new Set(s.next)], s.final === true]);
+  const steps = def.steps.map((s) => [s.key, s.name.trim(), [...new Set(s.next)], s.final === true, s.role ?? null]);
   return createHash('sha256').update(JSON.stringify([def.name.trim(), def.work_type.trim(), steps])).digest('hex');
 }
 
@@ -109,7 +114,7 @@ function fingerprint(def) {
 
 function stepsOf(db, workflowId) {
   return db.prepare('SELECT * FROM workflow_steps WHERE workflow_id = ? ORDER BY position').all(workflowId)
-    .map((s) => ({ key: s.step_key, name: s.name, position: s.position, final: s.is_final === 1, next: JSON.parse(s.next_steps_json), required_role: s.required_role }));
+    .map((s) => ({ key: s.step_key, name: s.name, position: s.position, final: s.is_final === 1, next: JSON.parse(s.next_steps_json), role: s.required_role }));
 }
 
 /** A workflow version with its steps. */
@@ -156,6 +161,10 @@ export function publishWorkflow(db, def, { actor, now = defaultNow, audit = writ
     const clash = db.prepare("SELECT workflow_key FROM workflows WHERE work_type = ? AND status = 'active' AND workflow_key != ?").get(def.work_type.trim(), def.key);
     if (clash) throw new ConflictError(`Work type ${def.work_type.trim()} already follows the workflow ${clash.workflow_key}. Retire it first, or publish a new version of it.`);
 
+    const unknownRoles = [...new Set(def.steps.map((s) => s.role).filter(Boolean))]
+      .filter((r) => !db.prepare('SELECT 1 FROM roles WHERE id = ?').get(r));
+    if (unknownRoles.length) throw new ValidationError(unknownRoles.map((r) => `role ${r} does not exist`));
+
     const latest = db.prepare('SELECT MAX(version) AS v FROM workflows WHERE workflow_key = ?').get(def.key).v ?? 0;
     const at = now();
     const row = {
@@ -165,9 +174,9 @@ export function publishWorkflow(db, def, { actor, now = defaultNow, audit = writ
     if (current) db.prepare("UPDATE workflows SET status = 'superseded' WHERE id = ?").run(current.id);
     db.prepare(`INSERT INTO workflows (id, workflow_key, version, name, work_type, status, definition_sha256, created_by, created_at)
                 VALUES (:id, :workflow_key, :version, :name, :work_type, :status, :definition_sha256, :created_by, :created_at)`).run(row);
-    const insertStep = db.prepare(`INSERT INTO workflow_steps (workflow_id, step_key, position, name, is_final, next_steps_json)
-                                   VALUES (?, ?, ?, ?, ?, ?)`);
-    def.steps.forEach((s, i) => insertStep.run(row.id, s.key, i + 1, s.name.trim(), s.final === true ? 1 : 0, JSON.stringify([...new Set(s.next)])));
+    const insertStep = db.prepare(`INSERT INTO workflow_steps (workflow_id, step_key, position, name, is_final, next_steps_json, required_role)
+                                   VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    def.steps.forEach((s, i) => insertStep.run(row.id, s.key, i + 1, s.name.trim(), s.final === true ? 1 : 0, JSON.stringify([...new Set(s.next)]), s.role ?? null));
     audit(db, {
       entityType: 'workflow', entityId: row.id, action: 'publish', actor: actor.trim(),
       before: current ? { workflow_id: current.id, version: current.version } : null,
@@ -237,9 +246,24 @@ export function workflowPosition(db, wo) {
     current_step_name: step.name,
     step_entered_at: wo.step_entered_at,
     // The final step is reached by completing (with a note), so it is listed separately.
-    next_steps: step.next.filter((k) => !workflow.steps.find((s) => s.key === k).final).map((k) => ({ key: k, name: name(k) })),
+    next_steps: step.next.filter((k) => !workflow.steps.find((s) => s.key === k).final)
+      .map((k) => ({ key: k, name: name(k), role: workflow.steps.find((s) => s.key === k).role ?? null })),
     can_complete: step.next.some((k) => workflow.steps.find((s) => s.key === k).final),
+    complete_role: workflow.steps.find((s) => s.final).role ?? null,
   };
+}
+
+// ---------- step roles (STORY-007) ----------
+
+/**
+ * Refuse unless the acting person holds the role this step requires. Fails closed: with no verified
+ * person (an outside system's key, or no user given) a step that requires a role cannot be reached.
+ */
+export function checkStepRole(db, step, actorUserId) {
+  if (!step.role) return;
+  if (!actorUserId || !rolesOf(db, actorUserId).includes(step.role)) {
+    throw new AccessDeniedError(`the ${step.role} role to move a work order to "${step.name}"`);
+  }
 }
 
 // ---------- moving a work order along its workflow ----------
@@ -254,7 +278,7 @@ export function workflowPosition(db, wo) {
  *
  * `audit` is only replaceable so tests can prove the rollback.
  */
-export function transitionWorkOrder(db, id, { to, actor, now = defaultNow, audit = writeAudit, expectedVersion } = {}) {
+export function transitionWorkOrder(db, id, { to, actor, actorUserId = currentUserId(), now = defaultNow, audit = writeAudit, expectedVersion } = {}) {
   const problems = [];
   if (typeof actor !== 'string' || !actor.trim()) problems.push('actor is required');
   if (typeof to !== 'string' || !to.trim()) problems.push('the step to move to is required');
@@ -277,6 +301,7 @@ export function transitionWorkOrder(db, id, { to, actor, now = defaultNow, audit
       const allowed = step.next.map((k) => workflow.steps.find((s) => s.key === k).name).join(', ');
       throw new ConflictError(`A work order at "${step.name}" cannot move to "${next.name}". It can move to: ${allowed}.`);
     }
+    checkStepRole(db, next, actorUserId);
 
     const at = now();
     db.prepare('UPDATE work_orders SET current_step = ?, step_entered_at = ?, updated_at = ?, version = version + 1 WHERE id = ?')

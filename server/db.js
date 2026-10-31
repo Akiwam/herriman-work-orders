@@ -186,6 +186,37 @@ const SCHEMA = `
     VALUES ('wf-standard-1', 'open', 1, 'Open', 0, '["completed"]'),
            ('wf-standard-1', 'completed', 2, 'Completed', 1, '[]');
 
+  -- People who use the system, and what they may do (STORY-007, REQ-047). Built from the proposed
+  -- app_user / role / user_role tables in knowledge/data-model.json. Outside systems (Madison AI,
+  -- Blue Stakes, vendors) stay in api_clients; these are staff.
+  CREATE TABLE IF NOT EXISTS users (
+    id           TEXT PRIMARY KEY,
+    email        TEXT NOT NULL UNIQUE,      -- stored lower-case
+    display_name TEXT NOT NULL,
+    is_active    INTEGER NOT NULL DEFAULT 1,
+    key_prefix   TEXT UNIQUE,               -- the user's personal API key: prefix in clear, the rest only as a hash
+    key_hash     TEXT,
+    created_by   TEXT NOT NULL,             -- user id of the administrator, or 'system' for the first one
+    created_at   TEXT NOT NULL
+  );
+
+  -- A role is a named set of permissions. The permissions are the same names API client scopes use.
+  CREATE TABLE IF NOT EXISTS roles (
+    id               TEXT PRIMARY KEY,
+    name             TEXT NOT NULL UNIQUE,
+    description      TEXT NOT NULL,
+    permissions_json TEXT NOT NULL,         -- JSON array, e.g. ["work_orders:read"]
+    is_builtin       INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS user_roles (
+    user_id    TEXT NOT NULL REFERENCES users(id),
+    role_id    TEXT NOT NULL REFERENCES roles(id),
+    granted_by TEXT NOT NULL,               -- user id
+    granted_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, role_id)
+  );
+
   -- A vendor's compliance answer and technical approach for one requirement (STORY-012, REQ-022).
   -- Each resubmission is a new revision; earlier revisions are kept. Built from the proposed
   -- compliance_response table in knowledge/data-model.json.
@@ -289,6 +320,8 @@ export function openDatabase(path = ':memory:') {
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(SCHEMA);
   addWorkflowColumns(db);
+  addAuditUserColumn(db);
+  seedRoles(db);
   return db;
 }
 
@@ -297,6 +330,35 @@ export function openDatabase(path = ':memory:') {
  * existing work order on the built-in Standard workflow — open ones on Open, completed ones on
  * Completed — which is exactly how they behaved before. Not a user change, so version is not bumped.
  */
+/**
+ * Audit entries record the verified user id of whoever acted (STORY-007), next to the actor text.
+ * NULL for entries written by outside systems and for entries made before users existed.
+ */
+function addAuditUserColumn(db) {
+  const have = db.prepare('PRAGMA table_info(audit_entries)').all().some((c) => c.name === 'actor_user_id');
+  if (!have) db.exec('ALTER TABLE audit_entries ADD COLUMN actor_user_id TEXT');
+}
+
+// The built-in roles. PLACEHOLDER names and permissions until the city confirms its real roles;
+// administrators will be able to add their own. vendor:submit is deliberately in no staff role —
+// it belongs to outside vendors only.
+export const BUILTIN_ROLES = [
+  ['system_admin', 'System administrator', 'Everything, including who has access and the audit trail.',
+    ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write', 'vendor:review', 'access:admin', 'audit:read']],
+  ['supervisor', 'Supervisor', 'Runs the work: work orders, workflows, locate tickets and heat maps.',
+    ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write']],
+  ['field_crew', 'Field crew', 'Reads work orders and moves them along; answers locate tickets.',
+    ['work_orders:read', 'work_orders:write', 'locate_tickets:write']],
+  ['clerk', 'Clerk', 'Creates and updates work orders.', ['work_orders:read', 'work_orders:write']],
+  ['planner', 'Planner', 'Heat maps and reading work orders.', ['work_orders:read', 'heatmaps:read']],
+  ['auditor', 'Auditor', 'Read-only, including the audit trail.', ['work_orders:read', 'heatmaps:read', 'audit:read']],
+];
+
+function seedRoles(db) {
+  const insert = db.prepare('INSERT OR IGNORE INTO roles (id, name, description, permissions_json, is_builtin) VALUES (?, ?, ?, ?, 1)');
+  for (const [id, name, description, permissions] of BUILTIN_ROLES) insert.run(id, name, description, JSON.stringify(permissions));
+}
+
 function addWorkflowColumns(db) {
   const have = new Set(db.prepare('PRAGMA table_info(work_orders)').all().map((c) => c.name));
   for (const col of ['workflow_id', 'current_step', 'step_entered_at']) {

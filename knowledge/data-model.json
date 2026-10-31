@@ -545,7 +545,7 @@
     },
     {
       "name": "app_user",
-      "purpose": "A person who signs in to the system.",
+      "purpose": "A member of city staff who uses the system with a personal key. Built as the users table.",
       "requirements": [
         "REQ-047"
       ],
@@ -558,7 +558,7 @@
         {
           "name": "email",
           "type": "text",
-          "note": "unique"
+          "note": "unique, lower-case"
         },
         {
           "name": "display_name",
@@ -567,6 +567,21 @@
         {
           "name": "is_active",
           "type": "boolean"
+        },
+        {
+          "name": "key_prefix",
+          "type": "text",
+          "note": "of the personal key; the key itself is never stored"
+        },
+        {
+          "name": "key_hash",
+          "type": "text",
+          "note": "sha256 of the personal key"
+        },
+        {
+          "name": "created_by",
+          "type": "text",
+          "note": "→ app_user, or system for the first administrator"
         },
         {
           "name": "created_at",
@@ -583,15 +598,15 @@
     },
     {
       "name": "role",
-      "purpose": "A named set of permissions, managed by system administrators.",
+      "purpose": "A named set of permissions (the same names API client scopes use). Built as the roles table, with six placeholder built-in roles.",
       "requirements": [
         "REQ-047"
       ],
       "fields": [
         {
           "name": "id",
-          "type": "uuid",
-          "note": "primary key"
+          "type": "text",
+          "note": "primary key, e.g. field_crew"
         },
         {
           "name": "name",
@@ -599,8 +614,17 @@
           "note": "unique"
         },
         {
+          "name": "description",
+          "type": "text"
+        },
+        {
           "name": "permissions",
-          "type": "jsonb"
+          "type": "jsonb",
+          "note": "stored as permissions_json"
+        },
+        {
+          "name": "is_builtin",
+          "type": "boolean"
         }
       ],
       "relationships": [
@@ -613,7 +637,7 @@
     },
     {
       "name": "user_role",
-      "purpose": "Which users hold which roles.",
+      "purpose": "Which users hold which roles. Built as the user_roles table; every grant and removal is in the audit trail.",
       "requirements": [
         "REQ-047"
       ],
@@ -653,7 +677,7 @@
     },
     {
       "name": "audit_entry",
-      "purpose": "An append-only record of every change to a work order, user, role or setting.",
+      "purpose": "An append-only record of every change, read and refused access, with who and when. Built as audit_entries; auditors read it through the API.",
       "requirements": [
         "REQ-047",
         "REQ-051"
@@ -667,7 +691,12 @@
         {
           "name": "actor_user_id",
           "type": "uuid",
-          "note": "→ app_user; null for system actions"
+          "note": "→ app_user; the verified user, null for outside systems and the first setup"
+        },
+        {
+          "name": "actor",
+          "type": "text",
+          "note": "readable: an email, or \"name via system\""
         },
         {
           "name": "entity_type",
@@ -680,7 +709,7 @@
         {
           "name": "action",
           "type": "text",
-          "note": "create | update | complete | delete"
+          "note": "e.g. create | update | complete | transition | grant | revoke | read | denied"
         },
         {
           "name": "before",

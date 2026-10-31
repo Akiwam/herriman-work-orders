@@ -117,7 +117,7 @@ test('a work order is moved along its workflow over the API, with If-Match, and 
   const created = await call('POST', '/work-orders', { key: crew.key, body: newOrder });
   assert.equal(created.status, 201);
   assert.equal(created.body.meta.workflow.current_step, 'received');
-  assert.deepEqual(created.body.meta.workflow.next_steps, [{ key: 'scheduled', name: 'Scheduled' }]);
+  assert.deepEqual(created.body.meta.workflow.next_steps, [{ key: 'scheduled', name: 'Scheduled', role: null }]);
   assert.deepEqual(validateResponse({ schema_version: created.body.schema_version, item: created.body.item }), [], 'the published work order format is unchanged');
   const id = created.body.item.id;
 

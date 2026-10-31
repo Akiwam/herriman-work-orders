@@ -12,7 +12,8 @@
 
 import { randomUUID } from 'node:crypto';
 import { inTransaction } from './db.js';
-import { workflowForWorkType, getWorkflow } from './workflows.js';
+import { workflowForWorkType, getWorkflow, checkStepRole } from './workflows.js';
+import { currentUserId } from './requestContext.js';
 
 export class NotFoundError extends Error {
   constructor(id) {
@@ -68,11 +69,15 @@ const defaultNow = () => new Date().toISOString();
 
 // ---------- audit ----------
 
-export function writeAudit(db, { entityType, entityId, action, actor, before = null, after = null, at }) {
+/**
+ * actorUserId is the verified user id (STORY-007), when a signed-in user acted; actor is the readable
+ * text. If not given, it is the user whose personal key the current API request was made with.
+ */
+export function writeAudit(db, { entityType, entityId, action, actor, actorUserId = currentUserId(), before = null, after = null, at }) {
   db.prepare(`
-    INSERT INTO audit_entries (entity_type, entity_id, action, actor, before_json, after_json, occurred_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(entityType, entityId, action, actor,
+    INSERT INTO audit_entries (entity_type, entity_id, action, actor, actor_user_id, before_json, after_json, occurred_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(entityType, entityId, action, actor, actorUserId,
     before === null ? null : JSON.stringify(before),
     after === null ? null : JSON.stringify(after),
     at);
@@ -316,7 +321,7 @@ export async function updateWorkOrder(db, id, changes, { actor, gis = null, now 
  * Workflows (STORY-006): completion moves the work order to its workflow's final step, and is only
  * allowed from a step that leads straight to it. Under the Standard workflow that is always true.
  */
-export async function completeWorkOrder(db, id, { note, actor, gis = null, now = defaultNow, expectedVersion } = {}) {
+export async function completeWorkOrder(db, id, { note, actor, actorUserId = currentUserId(), gis = null, now = defaultNow, expectedVersion } = {}) {
   const problems = [];
   if (isBlank(actor)) problems.push('actor is required');
   if (isBlank(note)) problems.push('a completion note is required');
@@ -335,6 +340,7 @@ export async function completeWorkOrder(db, id, { note, actor, gis = null, now =
       const ways = workflow.steps.filter((s) => s.next.includes(final.key)).map((s) => s.name).join(' or ');
       throw new ConflictError(`This work order is at "${step?.name ?? before.current_step}" and can only be completed from ${ways}.`);
     }
+    checkStepRole(db, final, actorUserId); // STORY-007: a final step may require a role, e.g. only a supervisor signs off
 
     const at = now();
     db.prepare(`UPDATE work_orders SET status = 'completed', completed_at = ?, completion_note = ?, updated_at = ?,

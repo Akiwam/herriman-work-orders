@@ -410,20 +410,43 @@
       "criteria": [
         {
           "text": "Given a user role, when assigned, then the user has appropriate access.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a user action, when performed, then it is logged in the audit trail.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: All access changes are logged with user IDs and timestamps.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/access.js",
+        "server/auditTrail.js",
+        "server/requestContext.js",
+        "server/adminBootstrap.js",
+        "server/accessDemo.js",
+        "server/api/accessRoutes.js",
+        "server/api/clients.js",
+        "server/api/server.js",
+        "server/api/workOrderWrites.js",
+        "server/api/workflowRoutes.js",
+        "server/api/openapi.js",
+        "server/workflows.js",
+        "server/workOrders.js",
+        "server/db.js",
+        "package.json",
+        ".gitignore",
+        "knowledge/notes.json",
+        "knowledge/data-model.json"
+      ],
+      "tests_added": [
+        "tests/access.test.js",
+        "tests/accessHttp.test.js",
+        "tests/accessAdminHttp.test.js"
+      ],
+      "notes": "Staff users with roles (six PLACEHOLDER built-in roles whose permissions are the existing API scopes) and personal keys (hwu_..., hash only, shown once). A person's permissions are re-read from their roles on every request, so granting or removing a role takes effect at once; if they cannot be read, the key can do nothing. Administrators (access:admin, with their own key - system keys are refused) add users, grant/remove roles and issue/revoke keys at /api/v1/users; the last active administrator cannot lose the role. Every audit entry made in a person's request carries their verified user id; acting under another name is refused and audited; refusals are audited. Auditors read GET /api/v1/audit (audit:read) by user, item, action and time; reading it is audited. Workflow steps can require a role, now enforced. Run `npm test`, `npm run demo:access`; first administrator: `npm run admin:bootstrap`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",

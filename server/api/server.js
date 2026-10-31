@@ -9,6 +9,7 @@
 //   GET  /api/v1/work-orders/{id}/workflow its workflow step and where it can go next (STORY-006)
 //
 // Workflows (STORY-006) — see workflowRoutes.js; transitions are in workOrderWrites.js.
+// Users, roles and the audit trail (STORY-007) — see accessRoutes.js.
 //
 // Locate tickets from the one-call centre (STORY-013) — needs scope locate_tickets:write:
 //   GET   /api/v1/locate-tickets/{id}            view a ticket
@@ -24,8 +25,13 @@
 
 import { createServer } from 'node:http';
 import {
-  auditedRead, requireAccess, UnauthorizedError, ForbiddenError, AuditUnavailableError, LOCATE_TICKETS_SCOPE,
+  auditedRead, requireAccess, actorFor, UnauthorizedError, ForbiddenError, AuditUnavailableError, LOCATE_TICKETS_SCOPE,
 } from './clients.js';
+import { runRequest } from '../requestContext.js';
+import { handleAccess, isAccessPath } from './accessRoutes.js';
+import { AccessDeniedError } from '../access.js';
+import { writeAudit } from '../workOrders.js';
+import { currentUserId } from '../requestContext.js';
 import { listWorkOrders, workOrderChanges, searchWorkOrders, getPublicWorkOrder } from './workOrderFeed.js';
 import { openApiDocument } from './openapi.js';
 import { ValidationError, NotFoundError, ConflictError } from '../workOrders.js';
@@ -79,12 +85,6 @@ function readWorkflowPosition(db, { id }) {
 
 const TICKET_PATH = new RegExp(`^${BASE}/locate-tickets/([^/]+)(?:/(respond|complete))?$`);
 
-/** The person acting, plus the system their request came through, e.g. "locator-1 via City app". */
-function actingAs(body, client) {
-  if (typeof body.actor !== 'string' || !body.actor.trim()) throw new ValidationError(['actor is required']);
-  return `${body.actor.trim()} via ${client.name}`;
-}
-
 async function handleTicket(req, res, db, match, { now, bluestakes }) {
   const id = decodeURIComponent(match[1]);
   const action = match[2] ?? null;
@@ -106,7 +106,7 @@ async function handleTicket(req, res, db, match, { now, bluestakes }) {
   const operation = action ? `${action}LocateTicket` : 'updateLocateTicket';
   const client = requireAccess(db, { key, operation, params: { id }, scope: LOCATE_TICKETS_SCOPE });
   const body = await readJsonBody(req);
-  const actor = actingAs(body, client);
+  const actor = actorFor(body, client, db);
 
   if (action === 'respond') {
     const result = await respondToLocateTicket(db, id, { code: body.code, note: body.note ?? null, actor, bluestakes, ...opts });
@@ -127,7 +127,9 @@ async function handleTicket(req, res, db, match, { now, bluestakes }) {
  * Without it, responses are saved and stay pending delivery.
  */
 export function createApiServer(db, { now, bluestakes = null, gis = null, requestTimeoutMs = 10_000, trustProxy = false } = {}) {
-  const server = createServer(async (req, res) => {
+  // Each request runs in its own context, which holds the verified user once their key is checked (STORY-007).
+  const server = createServer((req, res) => runRequest(() => handle(req, res)));
+  async function handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
     startRequestLog(db, req, res, url, { ip: clientIp(req, { trustProxy }), ...(now ? { now } : {}) });
     try {
@@ -150,6 +152,10 @@ export function createApiServer(db, { now, bluestakes = null, gis = null, reques
       }
       if (url.pathname.startsWith(`${VENDOR_BASE}/`)) {
         await handleVendor(req, res, db, url, { key: bearerKey(req), now });
+        return;
+      }
+      if (isAccessPath(url.pathname)) {
+        await handleAccess(req, res, db, url, { key: bearerKey(req), now });
         return;
       }
       if (url.pathname === WORKFLOWS_BASE || url.pathname.startsWith(`${WORKFLOWS_BASE}/`)) {
@@ -186,6 +192,20 @@ export function createApiServer(db, { now, bluestakes = null, gis = null, reques
         console.error('API: response failed the published format check', err);
         send(res, 500, { error: 'response_format_error', message: 'Our response did not match the published format, so it was not sent.' });
       }
+      else if (err instanceof AccessDeniedError) {
+        // Refused deeper in (e.g. a workflow step that needs a role). The change was rolled back, so the
+        // refusal is audited here, afterwards; if even that cannot be written, say so rather than hide it.
+        try {
+          writeAudit(db, {
+            entityType: 'api_access', entityId: currentUserId() ?? 'unknown', action: 'denied',
+            actor: db.prepare('SELECT email FROM users WHERE id = ?').get(currentUserId() ?? '')?.email ?? 'unknown',
+            after: { operation: `${req.method} ${url.pathname}`, reason: err.message }, at: (now ?? (() => new Date().toISOString()))(),
+          });
+          send(res, 403, { error: 'forbidden', message: err.message });
+        } catch {
+          send(res, 503, { error: 'audit_unavailable', message: 'Access refused: the audit trail could not be written' }, { 'Retry-After': '30' });
+        }
+      }
       else if (err instanceof ForbiddenError) send(res, 403, { error: 'forbidden', message: err.message });
       else if (err instanceof UnauthorizedError) send(res, 401, { error: 'unauthorized', message: err.message }, { 'WWW-Authenticate': 'Bearer' });
       else if (err instanceof ValidationError) send(res, 400, { error: 'invalid_request', message: err.message, problems: err.problems });
@@ -200,7 +220,7 @@ export function createApiServer(db, { now, bluestakes = null, gis = null, reques
         send(res, 500, { error: 'internal_error', message: 'Something went wrong on our side.' });
       }
     }
-  });
+  }
   server.requestTimeout = requestTimeoutMs; // a stuck request is dropped rather than held forever
   server.headersTimeout = requestTimeoutMs;
   return server;

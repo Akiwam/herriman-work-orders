@@ -12,7 +12,7 @@
 // audited (as "<actor> via <system>") and pushed to GIS like any other change.
 
 import { send, readJsonBody } from './http.js';
-import { requireAccess, WORK_ORDERS_WRITE_SCOPE } from './clients.js';
+import { requireAccess, actorFor, WORK_ORDERS_WRITE_SCOPE } from './clients.js';
 import { toPublic, validateResponse, SCHEMA_VERSION } from './workOrderFeed.js';
 import {
   createWorkOrder, updateWorkOrder, completeWorkOrder, getWorkOrder, ValidationError, NotFoundError, VersionConflictError,
@@ -100,8 +100,10 @@ export async function handleWorkOrderWrite(req, res, db, pathname, { key, gis = 
 
   const client = requireAccess(db, { key, operation, params: id ? { id } : {}, scope: WORK_ORDERS_WRITE_SCOPE });
   const body = await readJsonBody(req);
-  checkBody(body, BODIES[action]);
-  const actor = `${body.actor.trim()} via ${client.name}`;
+  // A person's key may leave actor out (their key says who they are), so the contract check sees it filled in.
+  // The whole body is checked first, so every problem is listed at once.
+  checkBody(client.kind === 'user' ? { ...body, actor: body.actor ?? client.email } : body, BODIES[action]);
+  const actor = actorFor(body, client, db);
   const { actor: _actor, ...fields } = body;
 
   if (action === 'create') {

@@ -8,6 +8,8 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { inTransaction } from '../db.js';
 import { writeAudit, ValidationError, ConflictError } from '../workOrders.js';
+import { userForKey, looksLikeUserKey, permissionsFor } from '../access.js';
+import { setActingUser } from '../requestContext.js';
 
 export const READ_SCOPE = 'work_orders:read';
 
@@ -95,11 +97,23 @@ export function revokeApiClient(db, id, { actor }, { now = defaultNow } = {}) {
 }
 
 function publicClient(row) {
-  return { id: row.id, name: row.name, scopes: JSON.parse(row.scopes), created_at: row.created_at, revoked_at: row.revoked_at };
+  return { kind: 'system', id: row.id, name: row.name, scopes: JSON.parse(row.scopes), created_at: row.created_at, revoked_at: row.revoked_at };
 }
 
-/** The active client a key belongs to, or null. Constant-time comparison of the hash. */
+/**
+ * Who a key belongs to, or null. Two kinds (STORY-007):
+ *   - an outside system's key (hwo_…): its scopes were fixed when the key was issued;
+ *   - a person's key (hwu_…): their permissions come from the roles they hold right now, so
+ *     granting or removing a role changes what the key can do on the very next request. If the
+ *     roles cannot be read, the key can do nothing (permissionsFor fails closed).
+ * Both are returned in the same shape ({ id, name, scopes }), so every endpoint checks access the same way.
+ */
 export function authenticate(db, presentedKey) {
+  if (looksLikeUserKey(presentedKey)) {
+    const user = userForKey(db, presentedKey);
+    if (!user) return null;
+    return { kind: 'user', id: user.id, user_id: user.id, name: user.email, email: user.email, scopes: [...permissionsFor(db, user.id)] };
+  }
   const match = /^hwo_([0-9a-f]{8})_[A-Za-z0-9_-]+$/.exec(String(presentedKey ?? ''));
   if (!match) return null;
   const row = db.prepare('SELECT * FROM api_clients WHERE key_prefix = ?').get(match[1]);
@@ -116,12 +130,15 @@ export function authenticate(db, presentedKey) {
  */
 export function requireAccess(db, { key, operation, params = {}, scope }, { at = defaultNow(), audit = writeAudit } = {}) {
   const client = authenticate(db, key);
-  if (client && client.scopes.includes(scope)) return client;
+  if (client && client.scopes.includes(scope)) {
+    if (client.kind === 'user') setActingUser(client.user_id); // every audit entry in this request gets the verified user id
+    return client;
+  }
 
   const reason = client ? `missing scope ${scope}` : 'missing or invalid API key';
   try {
     audit(db, {
-      entityType: 'api_access', entityId: client?.id ?? 'unknown', action: 'denied', actor: client?.name ?? 'anonymous',
+      entityType: 'api_access', entityId: client?.id ?? 'unknown', action: 'denied', actor: client?.name ?? 'anonymous', actorUserId: client?.user_id ?? null,
       after: { operation, params, reason }, at,
     });
   } catch (err) {
@@ -157,4 +174,33 @@ export function auditedRead(db, { key, operation, params = {}, scope = READ_SCOP
     }
     return result;
   });
+}
+
+/**
+ * The actor text for the audit trail.
+ *   - A person's key: it is them. They need not send an actor; if they do, it must be themselves,
+ *     so nobody can record an action under someone else's name.
+ *   - An outside system's key: the person or process it says is acting, plus the system,
+ *     e.g. "sam via Crew app" — the system vouches for that name.
+ */
+export function actorFor(body, client, db = null, { at = defaultNow(), audit = writeAudit } = {}) {
+  if (client.kind === 'user') {
+    if (body.actor !== undefined && (typeof body.actor !== 'string' || body.actor.trim().toLowerCase() !== client.email)) {
+      // Trying to record an action under someone else's name is a refused access attempt: audit it like one.
+      if (db) {
+        try {
+          audit(db, {
+            entityType: 'api_access', entityId: client.id, action: 'denied', actor: client.name, actorUserId: client.user_id,
+            after: { reason: 'actor is not the signed-in user', claimed_actor: String(body.actor).slice(0, 200) }, at,
+          });
+        } catch (err) {
+          throw new AuditUnavailableError(err);
+        }
+      }
+      throw new ValidationError([`actor must be you (${client.email}) or left out: your key already says who you are`]);
+    }
+    return client.email;
+  }
+  if (typeof body.actor !== 'string' || !body.actor.trim()) throw new ValidationError(['actor is required']);
+  return `${body.actor.trim()} via ${client.name}`;
 }
