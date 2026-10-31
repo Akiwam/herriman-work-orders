@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-004",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-31T00:59:59Z",
+  "sourceCommitSha": "188eb0e6fa85515802c56ec6c42c2e4c0cb6e90e",
+  "factProposals": [
+    {
+      "dimension": "integrations",
+      "value": "Outside systems can create, update and complete work orders over a documented HTTP API (/api/v1/work-orders) with the work_orders:write scope; changes are audited as '<actor> via <system>' and pushed to GIS. Exercised with a simulated external system.",
+      "evidence": "server/api/workOrderWrites.js; tests/workOrderWritesHttp.test.js"
+    },
+    {
+      "dimension": "data",
+      "value": "Work orders carry a version number, increased on every change (update, complete, GIS change, publish); api_request_log records every HTTP request.",
+      "evidence": "server/db.js; tests/workOrderVersions.test.js"
+    },
+    {
+      "dimension": "exceptions",
+      "value": "An outside system working from a stale copy is refused with 412 and given the current work order, rather than overwriting another change.",
+      "evidence": "server/api/workOrderWrites.js; tests/workOrderWritesHttp.test.js (data mismatch)"
+    },
+    {
+      "dimension": "security_context",
+      "value": "Every API request is logged with time, client, IP, status and the body's field names; body values and API keys are never stored. Write access needs its own scope; read-only clients get 403.",
+      "evidence": "server/api/requestLog.js; tests/apiRequestLog.test.js"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "Which vendors will connect, what their systems need from the API, and whether they accept this contract, ETag/If-Match and Idempotency-Key are not known; REQ-054's vendor coordination has not happened.",
+      "evidence": "server/api/openapi.js"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Use ETag / If-Match with a per-work-order version for outside writes, returning 412 on a stale version and 428 when missing.",
+      "rationale": "Prevents lost updates between outside systems and city staff; using headers kept the published JSON format unchanged.",
+      "evidence": "server/workOrders.js (VersionConflictError); server/api/workOrderWrites.js"
+    },
+    {
+      "statement": "Scope Idempotency-Key to the calling system.",
+      "rationale": "Retries are safe, and two systems choosing the same key cannot see or overwrite each other's work order.",
+      "evidence": "server/api/workOrderWrites.js"
+    },
+    {
+      "statement": "Log every request centrally at the top of the server, storing body field names and sizes but not values.",
+      "rationale": "No endpoint can skip the log, and personal data in bodies is not copied into it.",
+      "evidence": "server/api/requestLog.js; server/api/server.js"
+    },
+    {
+      "statement": "Generate the OpenAPI request bodies from the same field lists the endpoints validate against.",
+      "rationale": "The specification given to vendors is exactly what the API enforces.",
+      "evidence": "server/api/openapi.js (bodySchema); tests/workOrderWritesHttp.test.js (OpenAPI contract)"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "The specification has not been reviewed or tested by any vendor yet (REQ-054).",
+      "evidence": "server/api/openapi.js"
+    },
+    {
+      "statement": "The response format check before sending is a safety net that no test triggers, because the API's own output is always valid.",
+      "evidence": "server/api/workOrderWrites.js (ResponseFormatError)"
+    },
+    {
+      "statement": "If the database is down, the request log row cannot be written; the failure is reported on the console only.",
+      "evidence": "server/api/requestLog.js"
+    },
+    {
+      "statement": "A repeated Idempotency-Key with a different body returns the first work order without flagging the difference.",
+      "evidence": "server/api/workOrderWrites.js"
+    },
+    {
+      "statement": "The request log has no retention or clean-up yet, and it stores client IPs.",
+      "evidence": "server/db.js (api_request_log)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/workOrderWritesHttp.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/apiRequestLog.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/workOrderVersions.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/api/externalDemo.js (npm run demo:external)"
+    },
+    {
+      "kind": "commit",
+      "ref": "188eb0e6fa85515802c56ec6c42c2e4c0cb6e90e"
+    }
+  ],
+  "measurementEvents": []
+}
