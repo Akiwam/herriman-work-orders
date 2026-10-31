@@ -1,11 +1,11 @@
 <!-- COLABERRY:BEGIN — managed by the build pipeline. Edits inside this block are overwritten. -->
-# CLAUDE.md — 
+# CLAUDE.md — RFP - Enterprise Work Order Management System
 
 Conventions for this build. Claude Code reads this automatically.
 
 ## What this is
 
-Reconstructed from materialized gov build tasks for commit verification
+Gov build: project name established; requirements pending curation. Releases and stories mirror the board.
 
 ## Where the truth lives
 

@@ -1,15 +1,15 @@
 {
   "schema_version": 2,
-  "project": "",
+  "project": "RFP - Enterprise Work Order Management System",
   "totals": {
     "stories_total": 14,
-    "stories_verified": 0,
+    "stories_verified": 12,
     "stories_submitted": 0,
-    "stories_in_progress": 0,
-    "stories_not_started": 14,
-    "criteria_total": 44,
-    "criteria_passed": 0,
-    "points_awarded": 0
+    "stories_in_progress": 2,
+    "stories_not_started": 0,
+    "criteria_total": 41,
+    "criteria_passed": 35,
+    "points_awarded": 684
   },
   "stories": [
     {
@@ -72,21 +72,15 @@
       "notes": "Nine tabs, every card drills to a detail page; all content read at runtime through assets/js/data.js. The published plan.json has no requirements, measures, guardrails or systems and placeholder dates, so those tabs show empty states and Overview > Plan check lists the gaps; plan.json was not edited. The Data model tab renders a proposal from knowledge/data-model.json and looks requirement statements up in plan.json. Run `npm test` (23 tests).",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 5,
         "criteria_total": 5,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given the Command Center, when it is opened, then every tab is reachable and every card drills down one level.",
-          "Given sample mode, when any tab is shown, then the sample data is visibly labelled as sample.",
-          "Given the Command Center, when any tab renders, then .colaberry/plan.json and .colaberry/progress.json are both committed in this repo and every tab reads its content from them at runtime rather than from hard-coded values.",
-          "Given the Command Center, when any tab is shown, then .colaberry/manifest.json is committed in this repo and every tab shows how old that data is and warns when the age exceeds a week.",
-          "Trust — no tab shows a number, a connection or a result the project has not actually produced."
-        ]
+        "verified_at": "2026-10-30T03:20:53.910Z",
+        "commit_sha": "d483979ac1064dade17602c410dc6242f2e28963",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/d483979ac1064dade17602c410dc6242f2e28963",
+        "commit_at": "2026-10-30T03:20:18Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -122,19 +116,15 @@
       "notes": "Verified against a STAND-IN GIS (server/gis/stand-in-assets.json): no access to the city GIS yet. The real GIS plugs in behind createGisClient() with the same getAsset/linkWorkOrder methods. Create, update and complete each write their audit entry in the same transaction; GIS write-back is queued in gis_sync and retried if GIS is down. Run `npm test` and `npm run demo`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given a new work order, when I create it, then it should appear in the system with GIS data.",
-          "Given an existing work order, when I update it, then the changes should be saved and reflected in the GIS data.",
-          "Trust: Given any work order action, when it is performed, then an audit trail entry must be created."
-        ]
+        "verified_at": "2026-10-30T04:20:55.985Z",
+        "commit_sha": "5525493b8d576b9f8dc65882d9ecd9fe16c6597f",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/5525493b8d576b9f8dc65882d9ecd9fe16c6597f",
+        "commit_at": "2026-10-30T04:20:29Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -169,19 +159,15 @@
       "notes": "Verified against the STAND-IN GIS (no city GIS access yet). Work order -> GIS: queued write-back from STORY-001. GIS -> work order: processGisChanges() polls numbered changes, applies each with its audit entry and cursor in one transaction. Every GIS call goes through createGisClient, which requires a logger and writes one gis_log row per attempt. Credential comes only from GIS_TOKEN; unauthorized is not retried. The demo reads the stand-in directly for display only. Run `npm test` and `npm run demo`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given a work order update, when saved, then the GIS database reflects the changes.",
-          "Given a GIS update, when processed, then the work order reflects the changes.",
-          "Trust: All GIS interactions are logged with timestamps."
-        ]
+        "verified_at": "2026-10-30T04:38:16.734Z",
+        "commit_sha": "ff982a16c70522c6d16abc292d1a0571f3f93aff",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/ff982a16c70522c6d16abc292d1a0571f3f93aff",
+        "commit_at": "2026-10-30T04:37:48Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -225,19 +211,15 @@
       "notes": "Public page at /public and endpoints under /api/v1/public. A submission creates a service request and a work order (via STORY-001 createWorkOrder, actor public-portal) and returns a tracking code. Every submission attempt, including unreadable and rate-limited ones, is logged with time and IP in the staff-only public_submission_log; IPs cleared after a PLACEHOLDER 90 days. Work orders are private until staff publish them (publishWorkOrder); there is no staff screen for that yet. Runs locally only (GitHub Pages cannot run the server). Run `npm test`, `npm run demo:public`, `npm run public`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given a citizen request, when submitted, then it appears in the work order system.",
-          "Given a public work order, when viewed, then it shows current status and history.",
-          "Trust: All public submissions are logged with timestamps and IP addresses."
-        ]
+        "verified_at": "2026-10-30T05:30:22.549Z",
+        "commit_sha": "00b2732b4f31f5cc67d7da1e2c08446cbef50746",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/00b2732b4f31f5cc67d7da1e2c08446cbef50746",
+        "commit_at": "2026-10-30T05:29:49Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -282,19 +264,15 @@
       "notes": "Generic, specified API connection for outside systems: create/update/complete work orders under work_orders:write, bodies checked against the OpenAPI contract (generated from the same field lists), ETag/If-Match versioning (412 on stale, 428 if missing), Idempotency-Key per system, and an api_request_log row for every request (field names only, never values or keys). Proven with a SIMULATED external system; REQ-054 coordination with specific vendors is still to be done by people (see STORY-009). Run `npm test` and `npm run demo:external`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given an API request, when received, then the system processes it according to specifications.",
-          "Given a data update, when via API, then it reflects in the system.",
-          "Trust: All API interactions are logged with timestamps and request details."
-        ]
+        "verified_at": "2026-10-31T01:00:07.995Z",
+        "commit_sha": "188eb0e6fa85515802c56ec6c42c2e4c0cb6e90e",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/188eb0e6fa85515802c56ec6c42c2e4c0cb6e90e",
+        "commit_at": "2026-10-31T00:59:59Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -333,19 +311,15 @@
       "notes": "Grid heat maps (50 m - 2 km cells) by work type, date and status at GET /api/v1/heat-maps (scope heatmaps:read, never public), as GeoJSON for the city GIS or an SVG image without a street map. Work orders without coordinates (own or citizen pin) are counted as unmapped; cell counts + unmapped always equal the matching total. Every generation attempt (ok, invalid, failed) is in heat_map_log; refused requests are in the audit trail and request log. Run `npm test` and `npm run demo:heatmap`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given work order data, when analyzed, then the system generates a heat map.",
-          "Given a heat map, when viewed, then it accurately reflects work order distribution.",
-          "Trust: All heat map generations are logged with parameters and timestamps."
-        ]
+        "verified_at": "2026-10-31T01:33:56.902Z",
+        "commit_sha": "cde3c0f3a9a06338b5fb5fda21cfc73069e2bb28",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/cde3c0f3a9a06338b5fb5fda21cfc73069e2bb28",
+        "commit_at": "2026-10-31T01:33:45Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -388,19 +362,15 @@
       "notes": "Versioned workflows per work type: named steps with allowed next steps, exactly one final step. The built-in Standard workflow (Open -> Completed) is today's behaviour and covers every work type without its own, so existing work is unchanged. A change is published as a new version; work orders keep the version they started on. Definitions that could strand work orders (dead ends, unreachable steps, no way to finish, unknown steps, duplicates) are refused with every problem listed (422) and nothing saved. Publish and retire need workflows:admin; moving a work order (POST /api/v1/work-orders/{id}/transition, If-Match) needs work_orders:write; completion still needs a note. Every publish, retire and move is audited with user and time. Run `npm test` and `npm run demo:workflows`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given a workflow change, when applied, then the system supports the new workflow.",
-          "Given an existing workflow, when reviewed, then it operates as expected.",
-          "Trust: All workflow changes are logged with user IDs and timestamps."
-        ]
+        "verified_at": "2026-10-31T01:49:16.897Z",
+        "commit_sha": "d1dfa600fc219b064921ed3e30613ae3eb42beaf",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/d1dfa600fc219b064921ed3e30613ae3eb42beaf",
+        "commit_at": "2026-10-31T01:48:41Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -449,19 +419,15 @@
       "notes": "Staff users with roles (six PLACEHOLDER built-in roles whose permissions are the existing API scopes) and personal keys (hwu_..., hash only, shown once). A person's permissions are re-read from their roles on every request, so granting or removing a role takes effect at once; if they cannot be read, the key can do nothing. Administrators (access:admin, with their own key - system keys are refused) add users, grant/remove roles and issue/revoke keys at /api/v1/users; the last active administrator cannot lose the role. Every audit entry made in a person's request carries their verified user id; acting under another name is refused and audited; refusals are audited. Auditors read GET /api/v1/audit (audit:read) by user, item, action and time; reading it is audited. Workflow steps can require a role, now enforced. Run `npm test`, `npm run demo:access`; first administrator: `npm run admin:bootstrap`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given a user role, when assigned, then the user has appropriate access.",
-          "Given a user action, when performed, then it is logged in the audit trail.",
-          "Trust: All access changes are logged with user IDs and timestamps."
-        ]
+        "verified_at": "2026-10-31T03:44:58.812Z",
+        "commit_sha": "ff17e03ca7ea43d8e4f421b2b9e9d9a4cb7bdf48",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/ff17e03ca7ea43d8e4f421b2b9e9d9a4cb7bdf48",
+        "commit_at": "2026-10-31T03:44:23Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -509,19 +475,15 @@
       "notes": "System settings defined in code (type, range, default) with the city's values in system_settings: public rate limit, IP retention days, vendor review overdue days, default heat map cell size. Each is read when used, so a change applies on the next request. Changes (PUT/DELETE /api/v1/settings/{key}, settings:admin, personal key, If-Match) are saved with their audit entry and read back; out of range -> 400, stale -> 412, not confirmed -> 503 configuration_not_saved. User management: edit (If-Match), deactivate (key removed, refused next request; not yourself, not the last administrator), reactivate (new key needed); city-defined roles from known permissions, changes apply at once, built-in roles fixed, in-use roles cannot be deleted. Everything audited with user id and time; refusals audited, including system keys. Run `npm test`, `npm run demo:settings`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
+        "state": "verified",
         "criteria_passed": 0,
-        "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
+        "criteria_total": 0,
+        "verified_at": "2026-10-31T04:05:13.444Z",
+        "commit_sha": "37f5693897742e2f821d7ba96d0afb68fb52c3f3",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/37f5693897742e2f821d7ba96d0afb68fb52c3f3",
         "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given a system setting, when configured, then it applies across the system.",
-          "Given a user account, when managed, then changes reflect immediately.",
-          "Trust: All configuration changes are logged with user IDs and timestamps."
-        ]
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -547,7 +509,7 @@
       "notes": null,
       "updated_at": null,
       "verification": {
-        "state": "not_started",
+        "state": "in_progress",
         "criteria_passed": 0,
         "criteria_total": 3,
         "verified_at": null,
@@ -585,7 +547,7 @@
       "notes": null,
       "updated_at": null,
       "verification": {
-        "state": "not_started",
+        "state": "in_progress",
         "criteria_passed": 0,
         "criteria_total": 3,
         "verified_at": null,
@@ -635,19 +597,15 @@
       "notes": "Madison AI reaches work order data through an audited, read-only HTTP API (list, changes-since, search, get one) rather than direct database access, as agreed with the student, so every access can be logged. Proven against our published OpenAPI contract and a SIMULATED Madison AI crawler; Madison AI's own spec and credentials are not available yet. Fails closed: no audit entry means no data. Run `npm test` and `npm run demo:api`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given the system's database, when accessed by Madison AI engines, then it should allow indexing and searching of work order data.",
-          "Given a request from Madison AI, when it queries the API, then it should receive the correct data format.",
-          "Trust: Given any data access by Madison AI, when it occurs, then it must be logged in the audit trail."
-        ]
+        "verified_at": "2026-10-30T04:52:42.261Z",
+        "commit_sha": "54820666d3e6b60c40a84689483fc16020f2303d",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/54820666d3e6b60c40a84689483fc16020f2303d",
+        "commit_at": "2026-10-30T04:52:12Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -689,19 +647,15 @@
       "notes": "Vendor portal as API endpoints under /api/v1/vendor (no web page yet). Submissions with documents are stored with their audit entry, read back and fingerprint-checked inside the transaction before a receipt is returned; every submission received - stored, duplicate or refused - is in the audit trail. Reviewers approve or request changes (comment required, not their own organisation); review queue flags items waiting over a PLACEHOLDER 5 days. Requirements catalog copied from the STORY-000 brief because plan.json has none. Run `npm test` and `npm run demo:vendor`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given a requirement, when a vendor submits compliance documentation, then it should be stored in the system.",
-          "Given a technical approach, when a vendor submits it, then it should be reviewed and approved.",
-          "Trust: Given any vendor submission, when it is received, then it must be logged in the audit trail."
-        ]
+        "verified_at": "2026-10-31T01:18:04.760Z",
+        "commit_sha": "f04efb9424fd2c2e15efc13c979fdb1ad4aaf236",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/f04efb9424fd2c2e15efc13c979fdb1ad4aaf236",
+        "commit_at": "2026-10-31T01:17:54Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -743,19 +697,15 @@
       "notes": "Locate tickets from Blue Stakes are imported, updated, answered and completed, each audited in the same transaction. Verified against a STAND-IN Blue Stakes feed and client with PLACEHOLDER response codes; no Blue Stakes access yet. Exposed as API endpoints that need the locate_tickets:write scope; refusals are audited. Per-person logins come with STORY-007. Also fixed a flaky STORY-011 test (tests/madisonApi.test.js). Run `npm test` and `npm run demo:tickets`.",
       "updated_at": null,
       "verification": {
-        "state": "not_started",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given a Bluestakes data entry, when I update the data, then the system reflects the changes accurately.",
-          "Given a Bluestakes data entry, when I mark it as complete, then the system updates its status to complete.",
-          "Trust: Given a Bluestakes data entry update, when the update is made, then the system logs the change in the audit trail."
-        ]
+        "verified_at": "2026-10-30T05:07:49.601Z",
+        "commit_sha": "58697e84abf7f596d9c900e2831b55206db0bac5",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/58697e84abf7f596d9c900e2831b55206db0bac5",
+        "commit_at": "2026-10-30T05:07:18Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     }
   ]

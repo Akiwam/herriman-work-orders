@@ -1,4 +1,4 @@
-#  — Stories
+# RFP - Enterprise Work Order Management System — Stories
 
 14 stories across 11 releases, walking-skeleton first:
 the earliest release proves the thinnest end-to-end path including the trust

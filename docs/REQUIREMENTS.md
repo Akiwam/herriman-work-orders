@@ -1,6 +1,6 @@
-#  — Requirements
+# RFP - Enterprise Work Order Management System — Requirements
 
-Reconstructed from materialized gov build tasks for commit verification
+Gov build: project name established; requirements pending curation. Releases and stories mirror the board.
 
 This is the source of truth for what you are building. Your Claude Code prompts
 point here. If you sharpen a requirement, edit it — your version is the real one.
