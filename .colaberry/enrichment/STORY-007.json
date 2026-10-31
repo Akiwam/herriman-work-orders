@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-007",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-31T03:44:23Z",
+  "sourceCommitSha": "ff17e03ca7ea43d8e4f421b2b9e9d9a4cb7bdf48",
+  "factProposals": [
+    {
+      "dimension": "actors",
+      "value": "City staff are users with roles: system administrator, supervisor, field crew, clerk, planner and auditor (placeholder roles until the city confirms its own). Outside systems remain separate API clients.",
+      "evidence": "server/db.js (BUILTIN_ROLES, users, roles, user_roles); tests/access.test.js"
+    },
+    {
+      "dimension": "security_context",
+      "value": "Each person uses a personal key that is shown once and stored only as a hash. Their permissions come from their current roles on every request, and access checks fail closed.",
+      "evidence": "server/access.js (issueUserKey, userForKey, permissionsFor); tests/accessHttp.test.js"
+    },
+    {
+      "dimension": "approval_points",
+      "value": "Only a system administrator, acting with their own key, can add users, grant or remove roles, and issue or revoke keys. A workflow step can require a role, for example only a supervisor signs off a repair.",
+      "evidence": "server/api/accessRoutes.js (administrator); server/workflows.js (checkStepRole); tests/accessAdminHttp.test.js"
+    },
+    {
+      "dimension": "data",
+      "value": "Every audit entry made in a person's request records their verified user id, alongside readable actor text. Refused access attempts, including acting under someone else's name, are audited.",
+      "evidence": "server/requestContext.js; server/workOrders.js (writeAudit); server/api/clients.js (actorFor); server/api/server.js"
+    },
+    {
+      "dimension": "outputs",
+      "value": "Auditors can read the audit trail filtered by user, item, action and time range, a page at a time; reading it is itself audited.",
+      "evidence": "server/auditTrail.js; server/api/accessRoutes.js; tests/accessAdminHttp.test.js (auditor reads)"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "The city's real staff roles and permissions, and whether staff must sign in through the city's own identity system, are not known.",
+      "evidence": "server/db.js (BUILTIN_ROLES PLACEHOLDER)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Use personal API keys for people instead of passwords or single sign-on.",
+      "rationale": "No access to the city's identity system; keys reuse the hashed-key design already in place and can sit behind single sign-on later.",
+      "evidence": "server/access.js (issueUserKey); server/api/clients.js (authenticate)"
+    },
+    {
+      "statement": "Make role permissions the same names as API client scopes.",
+      "rationale": "Every existing endpoint enforces people's roles without changes of its own.",
+      "evidence": "server/api/clients.js (authenticate); server/db.js (BUILTIN_ROLES)"
+    },
+    {
+      "statement": "Take the acting user from the key and refuse an actor name that differs.",
+      "rationale": "Before, the audit trail held whatever name a caller typed; now it can show who really acted.",
+      "evidence": "server/api/clients.js (actorFor); tests/accessHttp.test.js (someone else's name)"
+    },
+    {
+      "statement": "Refuse access changes made with an outside system's key, even with access:admin.",
+      "rationale": "Every access change must have a verified user id.",
+      "evidence": "server/api/accessRoutes.js (administrator)"
+    },
+    {
+      "statement": "Never let the last active system administrator lose the role; create the first one with a one-off command that refuses if one exists.",
+      "rationale": "The city must never be locked out of managing access, and the setup command must not allow taking over a running system.",
+      "evidence": "server/access.js (revokeRole, bootstrapAdministrator); server/adminBootstrap.js"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "The six built-in roles are placeholders, and administrators cannot define new roles yet.",
+      "evidence": "server/db.js (BUILTIN_ROLES)"
+    },
+    {
+      "statement": "Users cannot yet be edited or deactivated through the API; that is user management, still to come.",
+      "evidence": "server/api/accessRoutes.js"
+    },
+    {
+      "statement": "There is no password or single sign-on login; people use personal keys.",
+      "evidence": "server/access.js (issueUserKey)"
+    },
+    {
+      "statement": "Audit entries made before this change, and entries from outside systems, have no verified user id.",
+      "evidence": "server/db.js (addAuditUserColumn); tests/accessHttp.test.js (outside systems)"
+    },
+    {
+      "statement": "Auditors see full before and after values in the audit trail, including work order details.",
+      "evidence": "server/auditTrail.js (listAuditEntries)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/access.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/accessHttp.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/accessAdminHttp.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/accessDemo.js (npm run demo:access)"
+    },
+    {
+      "kind": "commit",
+      "ref": "ff17e03ca7ea43d8e4f421b2b9e9d9a4cb7bdf48"
+    }
+  ],
+  "measurementEvents": []
+}
