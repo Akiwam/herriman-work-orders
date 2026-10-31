@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-005",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-10-31T01:33:46Z",
+  "sourceCommitSha": "cde3c0f3a9a06338b5fb5fda21cfc73069e2bb28",
+  "factProposals": [
+    {
+      "dimension": "outputs",
+      "value": "Grid heat maps of work orders (counts per 50 m to 2 km square, with a breakdown by work type), filtered by type, date range and status, as GeoJSON or an SVG image.",
+      "evidence": "server/heatMaps.js; server/api/heatMapRoutes.js; tests/heatMaps.test.js"
+    },
+    {
+      "dimension": "data",
+      "value": "Only work orders with coordinates can be mapped: those created from a GIS asset, or citizen requests with a map pin. Work orders with only a freeform location are counted as unmapped.",
+      "evidence": "server/heatMaps.js (matchingWorkOrders); tests/heatMaps.test.js (add up, citizen's map pin)"
+    },
+    {
+      "dimension": "actors",
+      "value": "City planners and staff use heat maps through an API client with the heatmaps:read scope.",
+      "evidence": "server/api/clients.js (HEATMAPS_SCOPE); tests/heatMapHttp.test.js"
+    },
+    {
+      "dimension": "security_context",
+      "value": "Heat maps are never public and contain only per-cell counts, because a cell with one work order can point to one citizen's report; the SVG is served as a sandboxed image.",
+      "evidence": "server/api/heatMapRoutes.js; tests/heatMaps.test.js (only counts)"
+    },
+    {
+      "dimension": "data",
+      "value": "heat_map_log records every heat map generation attempt with who asked, format, parameters, start and finish times, duration, outcome, error and result counts.",
+      "evidence": "server/db.js; server/heatMaps.js (generateHeatMap)"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "Which cell size, filters and output the planners actually want, and whether the city GIS will load the GeoJSON as delivered, are not known.",
+      "evidence": "server/heatMaps.js (CELL_SIZE)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Count work orders without coordinates as unmapped rather than leaving them out silently.",
+      "rationale": "A heat map must say how much of the data it shows; geocoding addresses would need an outside service and account.",
+      "evidence": "server/heatMaps.js (analyzeWorkOrders)"
+    },
+    {
+      "statement": "Use one fixed square grid anchored at Herriman's latitude.",
+      "rationale": "Maps from different runs and filters line up and can be compared cell by cell.",
+      "evidence": "server/heatMaps.js (REFERENCE_LATITUDE, cellDegrees)"
+    },
+    {
+      "statement": "Provide GeoJSON for a street-map view in the city's GIS instead of drawing a street map.",
+      "rationale": "A street map needs an outside tile service with its own terms and account.",
+      "evidence": "server/heatMaps.js (toGeoJSON, toSvg)"
+    },
+    {
+      "statement": "Refuse maps over 5,000 cells or 250,000 grid squares with advice.",
+      "rationale": "Such maps are unreadable and slow; refusing clearly is better than producing them.",
+      "evidence": "server/heatMaps.js (MAX_CELLS, MAX_GRID_SQUARES); tests/heatMapHttp.test.js (422)"
+    },
+    {
+      "statement": "Return no map if its log row cannot be written.",
+      "rationale": "The Trust criterion: every heat map generation is logged.",
+      "evidence": "server/heatMaps.js (generateHeatMap); tests/heatMaps.test.js (cannot be logged)"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "Neighbouring work orders near a cell edge can be counted in different cells; there is no smoothing.",
+      "evidence": "tests/heatMaps.test.js (a larger cell size merges nearby points)"
+    },
+    {
+      "statement": "The SVG image has no street map or place names.",
+      "evidence": "server/heatMaps.js (toSvg)"
+    },
+    {
+      "statement": "Citizen map pins are used for placement but are not copied onto the work order itself.",
+      "evidence": "server/heatMaps.js (matchingWorkOrders)"
+    },
+    {
+      "statement": "Refused (unauthorized) heat map requests are recorded in the audit trail and request log, not in heat_map_log, because nothing was generated.",
+      "evidence": "server/api/heatMapRoutes.js; tests/heatMapHttp.test.js (unauthorized)"
+    },
+    {
+      "statement": "There is no planner-facing page; heat maps are requested through the API.",
+      "evidence": "server/api/heatMapRoutes.js"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/heatMaps.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/heatMapHttp.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/heatMapDemo.js (npm run demo:heatmap)"
+    },
+    {
+      "kind": "commit",
+      "ref": "cde3c0f3a9a06338b5fb5fda21cfc73069e2bb28"
+    }
+  ],
+  "measurementEvents": []
+}
