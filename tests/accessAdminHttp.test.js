@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { openDatabase } from '../server/db.js';
+import { openDatabase, BUILTIN_ROLES } from '../server/db.js';
 import { createApiClient, READ_SCOPE, WORK_ORDERS_WRITE_SCOPE } from '../server/api/clients.js';
 import { createApiServer } from '../server/api/server.js';
 import { bootstrapAdministrator, issueUserKey, createUser, grantRole } from '../server/access.js';
@@ -76,7 +76,7 @@ test('an administrator adds a user, grants a role, issues a key — and the user
   const users = await call('GET', '/users');
   assert.deepEqual(users.body.items.map((u) => u.email), ['jane.admin@herriman.example', 'lee@herriman.example']);
   assert.ok(users.body.items.every((u) => !('key_hash' in u) && !('key_prefix' in u)), 'no key material is ever listed');
-  assert.equal((await call('GET', '/roles')).body.items.length, 6);
+  assert.equal((await call('GET', '/roles')).body.items.length, BUILTIN_ROLES.length);
 });
 
 // ---------- failure path: unauthorized access ----------

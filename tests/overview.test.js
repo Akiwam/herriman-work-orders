@@ -49,10 +49,22 @@ test('missing totals render "not checked yet", never a zero', () => {
   assert.doesNotMatch(html, /card-value">0 /);
 });
 
+// The plan arrived with a blank name at first and the platform filled it in later, so both cases are
+// tested with their own data rather than with whatever the real plan says today.
 test('blank project name shows an honest empty state, with no hard-coded name', () => {
-  const html = render(realModel(), []);
+  const files = realFiles();
+  files.plan = { ...files.plan, project_name: '', project: { ...files.plan.project, name: '' } };
+  const html = render(buildModel({ mode: 'real', ...files, sources, now: NOW }), []);
   assert.match(html, /Project name not set in the plan yet/);
   assert.doesNotMatch(html, /Herriman/);
+});
+
+test('a project name in the plan is shown as given', () => {
+  const files = realFiles();
+  files.plan = { ...files.plan, project_name: 'Example name', project: { ...files.plan.project, name: 'Example name' } };
+  const html = render(buildModel({ mode: 'real', ...files, sources, now: NOW }), []);
+  assert.match(html, /Example name/);
+  assert.doesNotMatch(html, /Project name not set/);
 });
 
 test('every overview card drills down to a detail page that renders', () => {

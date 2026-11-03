@@ -9,6 +9,8 @@ import { USER_FIELDS, GRANT_FIELDS, ROLE_FIELDS } from './accessRoutes.js';
 import { PERMISSIONS } from '../access.js';
 import { AUDIT_FILTERS } from '../auditTrail.js';
 import { SETTINGS } from '../settings.js';
+import { ITEM_FIELDS } from './readinessRoutes.js';
+import { MANUAL_ITEMS, STATUSES as READINESS_STATUSES, TARGET_DATE } from '../readiness.js';
 import { SUBMISSION_FIELDS, REVIEW_FIELDS } from './vendorRoutes.js';
 import { FORMATS as HEAT_MAP_FORMATS, STATUSES as HEAT_MAP_STATUSES, CELL_SIZE as HEAT_MAP_CELL } from '../heatMaps.js';
 import { COMPLIANCE_VALUES, REVIEW_DECISIONS, MAX_DOCUMENTS, MAX_DOCUMENT_BYTES } from '../vendorSubmissions.js';
@@ -376,6 +378,46 @@ export function openApiDocument() {
             503: { description: 'The read could not be audited, so nothing was returned' },
           },
         },
+      },
+      '/readiness': {
+        get: {
+          summary: 'The readiness checklist: manual items as recorded, and the automatic checks (readiness:review)',
+          description: `Assessed against the go-live date ${TARGET_DATE} (REQ-053). Items are grouped as configuration, testing and data conversion (REQ-052).`,
+          responses: { 200: { description: 'OK' }, 401: { description: 'Missing or invalid API key' }, 403: { description: 'Needs readiness:review' } },
+        },
+      },
+      '/readiness/items/{key}': {
+        put: {
+          summary: 'Record a manual readiness item (readiness:review, personal key)',
+          parameters: [{ name: 'key', in: 'path', required: true, schema: { type: 'string', enum: Object.keys(MANUAL_ITEMS) } }],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', additionalProperties: false, properties: {
+              status: { type: 'string', enum: READINESS_STATUSES },
+              note: { type: ['string', 'null'], maxLength: 2000, description: 'Evidence or reason. Required for not_applicable.' },
+              due_on: { type: ['string', 'null'], format: 'date', description: 'Time allotted for this task (REQ-052)' },
+            } } } },
+          },
+          responses: { 200: { description: 'Recorded (changed: true) or already so' }, 400: { description: 'Unknown field, status or bad date; problems lists every issue' }, 403: { description: 'Needs readiness:review with a personal key' }, 404: { description: 'No such item' } },
+        },
+      },
+      '/readiness/assessments': {
+        get: { summary: 'Every readiness assessment, newest first (readiness:review)', responses: { 200: { description: 'OK' }, 403: { description: 'Needs readiness:review' } } },
+        post: {
+          summary: 'Run a readiness assessment (readiness:review, personal key)',
+          description: 'Runs every automatic check and takes the manual items as recorded. The verdict is ready only if every item passes. '
+            + 'The record keeps the reviewer, the times and every result.',
+          parameters: [{ name: 'Idempotency-Key', in: 'header', required: false, schema: { type: 'string', maxLength: 200 }, description: 'The same key again returns the first assessment (200, Idempotent-Replayed: true)' }],
+          responses: {
+            201: { description: 'Assessed and recorded' },
+            200: { description: 'Repeat of an earlier request with the same Idempotency-Key' },
+            403: { description: 'Needs readiness:review with a personal key' },
+            503: { description: 'The assessment could not be recorded, so no result is given' },
+          },
+        },
+      },
+      '/readiness/assessments/{id}': {
+        get: { summary: 'One readiness assessment with every result (readiness:review)', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'OK' }, 404: { description: 'No such assessment' } } },
       },
       '/settings': {
         get: {

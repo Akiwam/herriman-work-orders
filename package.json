@@ -15,6 +15,7 @@
     "admin:bootstrap": "node --no-warnings server/adminBootstrap.js",
     "demo:access": "node --no-warnings server/accessDemo.js",
     "demo:settings": "node --no-warnings server/settingsDemo.js",
+    "demo:readiness": "node --no-warnings server/readinessDemo.js",
     "demo:tickets": "node --no-warnings server/bluestakes/demo.js",
     "demo:public": "node --no-warnings server/public/demo.js",
     "public": "node --no-warnings server/public/serve.js"

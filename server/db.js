@@ -221,6 +221,34 @@ const SCHEMA = `
     updated_at TEXT NOT NULL
   );
 
+  -- Operational readiness (STORY-010, REQ-052, REQ-053). Which checklist items exist is defined in
+  -- code (server/readiness.js); this holds the current state of the items people record by hand.
+  CREATE TABLE IF NOT EXISTS readiness_items (
+    item_key   TEXT PRIMARY KEY,
+    status     TEXT NOT NULL,                -- not_started | in_progress | blocked | done | not_applicable
+    note       TEXT,                         -- evidence or reason; required for not_applicable
+    due_on     TEXT,                         -- YYYY-MM-DD; time allotted for this task (REQ-052)
+    version    INTEGER NOT NULL,
+    updated_by TEXT NOT NULL,                -- user id
+    updated_at TEXT NOT NULL
+  );
+
+  -- One row per readiness assessment: a permanent record of who assessed, when, every item's result
+  -- and the verdict. Never updated or deleted.
+  CREATE TABLE IF NOT EXISTS readiness_assessments (
+    id               TEXT PRIMARY KEY,
+    request_id       TEXT UNIQUE,            -- the same request sent twice returns the first assessment
+    reviewer_user_id TEXT NOT NULL,
+    reviewer_email   TEXT NOT NULL,
+    started_at       TEXT NOT NULL,
+    finished_at      TEXT NOT NULL,
+    target_date      TEXT NOT NULL,          -- the go-live date assessed against (REQ-053)
+    days_remaining   INTEGER NOT NULL,
+    verdict          TEXT NOT NULL,          -- ready | not_ready
+    summary_json     TEXT NOT NULL,          -- counts of passed / failed / errors
+    results_json     TEXT NOT NULL           -- every item: key, kind, status, passed, detail
+  );
+
   CREATE TABLE IF NOT EXISTS user_roles (
     user_id    TEXT NOT NULL REFERENCES users(id),
     role_id    TEXT NOT NULL REFERENCES roles(id),
@@ -363,7 +391,7 @@ function addAuditUserColumn(db) {
 // it belongs to outside vendors only.
 export const BUILTIN_ROLES = [
   ['system_admin', 'System administrator', 'Everything, including who has access and the audit trail.',
-    ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write', 'vendor:review', 'access:admin', 'audit:read', 'settings:admin']],
+    ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write', 'vendor:review', 'access:admin', 'audit:read', 'settings:admin', 'readiness:review']],
   ['supervisor', 'Supervisor', 'Runs the work: work orders, workflows, locate tickets and heat maps.',
     ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write']],
   ['field_crew', 'Field crew', 'Reads work orders and moves them along; answers locate tickets.',
@@ -371,6 +399,8 @@ export const BUILTIN_ROLES = [
   ['clerk', 'Clerk', 'Creates and updates work orders.', ['work_orders:read', 'work_orders:write']],
   ['planner', 'Planner', 'Heat maps and reading work orders.', ['work_orders:read', 'heatmaps:read']],
   ['auditor', 'Auditor', 'Read-only, including the audit trail.', ['work_orders:read', 'heatmaps:read', 'audit:read']],
+  ['project_manager', 'Project manager', 'Assesses operational readiness for launch; reads work orders, heat maps and the audit trail.',
+    ['work_orders:read', 'heatmaps:read', 'audit:read', 'readiness:review']],
 ];
 
 /**

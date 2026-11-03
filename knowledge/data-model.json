@@ -946,7 +946,50 @@
     },
     {
       "name": "readiness_item",
-      "purpose": "One configuration, testing or data-conversion task on the way to go-live.",
+      "purpose": "One configuration, testing or data-conversion task on the way to go-live, as a person recorded it. Built as readiness_items; which items exist is defined in code, and the system's own checks run alongside them.",
+      "requirements": [
+        "REQ-052",
+        "REQ-053"
+      ],
+      "fields": [
+        {
+          "name": "item_key",
+          "type": "text",
+          "note": "primary key, e.g. data_conversion.rehearsed; the category is its first part"
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "note": "not_started | in_progress | blocked | done | not_applicable"
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "note": "evidence or reason; required for not_applicable"
+        },
+        {
+          "name": "due_on",
+          "type": "date"
+        },
+        {
+          "name": "version",
+          "type": "integer"
+        },
+        {
+          "name": "updated_by",
+          "type": "uuid",
+          "note": "→ app_user"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz"
+        }
+      ],
+      "relationships": []
+    },
+    {
+      "name": "readiness_assessment",
+      "purpose": "A permanent record of one readiness assessment: who assessed, when, every item's result and the verdict.",
       "requirements": [
         "REQ-052",
         "REQ-053"
@@ -958,28 +1001,49 @@
           "note": "primary key"
         },
         {
-          "name": "category",
+          "name": "reviewer_user_id",
+          "type": "uuid",
+          "note": "→ app_user"
+        },
+        {
+          "name": "reviewer_email",
+          "type": "text"
+        },
+        {
+          "name": "started_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "finished_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "target_date",
+          "type": "date",
+          "note": "2027-07-01"
+        },
+        {
+          "name": "days_remaining",
+          "type": "integer"
+        },
+        {
+          "name": "verdict",
           "type": "text",
-          "note": "configuration | testing | data conversion"
+          "note": "ready | not_ready"
         },
         {
-          "name": "title",
-          "type": "text"
-        },
-        {
-          "name": "status",
-          "type": "text"
-        },
-        {
-          "name": "due_on",
-          "type": "date"
-        },
-        {
-          "name": "completed_on",
-          "type": "date"
+          "name": "results",
+          "type": "jsonb",
+          "note": "every item: status, passed, detail"
         }
       ],
-      "relationships": []
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "app_user",
+          "via": "reviewer_user_id"
+        }
+      ]
     }
   ]
 }

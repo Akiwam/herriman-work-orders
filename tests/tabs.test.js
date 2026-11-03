@@ -90,6 +90,8 @@ test('real: no page carries a sample label or sample text', () => {
 
 test('real: no page shows a green connection, a success rate, or a measured value', () => {
   const m = model('real', (f) => {
+    // Nothing verified yet, so nothing may be claimed: the real progress file changes as stories verify.
+    f.progress = { ...f.progress, stories: f.progress.stories.map((s) => ({ ...s, verification: { ...s.verification, state: 'in_progress', verified_at: null } })) };
     f.plan.derived = {
       ...f.plan.derived,
       systems: ['API'],

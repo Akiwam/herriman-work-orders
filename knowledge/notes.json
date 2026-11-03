@@ -364,6 +364,34 @@
       "title": "Only four settings so far, and no settings page",
       "body": "The public rate limit, IP retention, vendor review overdue days and default heat map cell size are settings; other values (for example upload size limits and the one-hour rate-limit window) are still fixed in code. Settings, users and roles are managed through the API; there is no administrator page yet.",
       "evidence": "server/settings.js (SETTINGS); server/api/settingsRoutes.js"
+    },
+    {
+      "date": "2026-11-02",
+      "kind": "decision",
+      "title": "Readiness is checked by the system where it can be, and confirmed by people where it cannot",
+      "body": "Automatic checks cover configuration (settings, administrator, workflows, audit trail), connections (GIS, Blue Stakes, Lama, Sprypoint, Madison AI) and a create, update and complete smoke test. Ten manual items cover what only people can confirm, grouped as configuration, testing and data conversion, with due dates for the time allotted to each. Not applicable counts only with a reason.",
+      "evidence": "server/readiness.js (AUTOMATIC_CHECKS, MANUAL_ITEMS)"
+    },
+    {
+      "date": "2026-11-02",
+      "kind": "decision",
+      "title": "A connection counts as live only with recent evidence",
+      "body": "GIS and Blue Stakes pass only if the system was started against the real service and the log shows a successful call in the last 7 days. A vendor passes only if it has its own API connection that exchanged data successfully in the last 30 days. Declaring something live is not enough.",
+      "evidence": "server/readiness.js (connectionCheck, vendorCheck)"
+    },
+    {
+      "date": "2026-11-02",
+      "kind": "decision",
+      "title": "No assessment without a record, and nothing passes that could not be checked",
+      "body": "The verdict is ready only if every item passes. A check that crashes counts as failed and the rest still run. Each assessment is kept with the reviewer, start and finish times and every result, and audited; if it cannot be recorded, no result is given.",
+      "evidence": "server/readiness.js (runAssessment)"
+    },
+    {
+      "date": "2026-11-02",
+      "kind": "limitation",
+      "title": "Today's system is not ready for launch",
+      "body": "The first assessment is not ready: GIS and Blue Stakes run on stand-ins, Lama and Sprypoint are not integrated (vendor coordination has not started), and none of the people-confirmed items (user acceptance testing, data conversion, training, city roles, retention rules) are done. A ready verdict has only been shown with a fully prepared example. The smoke test runs on a throwaway database, not the live one.",
+      "evidence": "tests/readinessAssessment.test.js (honestly not ready); server/readinessDemo.js"
     }
   ]
 }

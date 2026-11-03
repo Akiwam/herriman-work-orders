@@ -531,20 +531,38 @@
       "criteria": [
         {
           "text": "Given system configuration, when assessed, then it meets operational standards.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a readiness checklist, when completed, then the system is ready for launch.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: All readiness assessments are logged with timestamps and reviewer details.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/readiness.js",
+        "server/readinessDemo.js",
+        "server/api/readinessRoutes.js",
+        "server/api/server.js",
+        "server/api/openapi.js",
+        "server/access.js",
+        "server/db.js",
+        "package.json",
+        "tests/overview.test.js",
+        "tests/tabs.test.js",
+        "tests/accessAdminHttp.test.js",
+        "knowledge/notes.json",
+        "knowledge/data-model.json"
+      ],
+      "tests_added": [
+        "tests/readiness.test.js",
+        "tests/readinessAssessment.test.js",
+        "tests/readinessHttp.test.js"
+      ],
+      "notes": "Readiness assessment against the July 1, 2027 go-live date: 11 automatic checks (settings valid, an administrator who can sign in, workflows completable, audit trail writable, a create/update/complete smoke test on a throwaway database, GIS and Blue Stakes queues clear, GIS and Blue Stakes live with a recent successful call, Lama/Sprypoint/Madison AI each with a recent successful exchange) and 10 manual items for configuration, testing and data conversion that a project manager records (not applicable needs a reason). Verdict ready only if every item passes; a crashing check counts as failed. Each assessment is kept with reviewer, times and every result and audited; if it cannot be recorded, no result (503). readiness:review, personal key, Idempotency-Key. HONEST STATE: today's real system is NOT READY (stand-in GIS and Blue Stakes, no vendor integrations - STORY-009 is waiting on vendor coordination - and no manual sign-offs); 'ready' is shown with a fully prepared example. Run `npm run demo:readiness`.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",

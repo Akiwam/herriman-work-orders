@@ -332,7 +332,7 @@ export function setUserActive(db, userId, active, { actorUserId, expectedVersion
 /** Every permission a role can include. vendor:submit is left out on purpose: it is for outside vendors only. */
 export const PERMISSIONS = [
   'work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write',
-  'vendor:review', 'access:admin', 'audit:read', 'settings:admin',
+  'vendor:review', 'access:admin', 'audit:read', 'settings:admin', 'readiness:review',
 ];
 const ROLE_ID = /^[a-z][a-z0-9_]{1,40}$/;
 
