@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-010",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-11-03T05:07:56Z",
+  "sourceCommitSha": "72d2026a4cf51157fe9a91e85cac7fa247a721de",
+  "factProposals": [
+    {
+      "dimension": "outputs",
+      "value": "A readiness assessment against the July 1, 2027 go-live date: automatic checks of the system plus items people confirm, a verdict of ready or not ready, and every blocker named.",
+      "evidence": "server/readiness.js (runAssessment); tests/readinessAssessment.test.js"
+    },
+    {
+      "dimension": "actors",
+      "value": "A project manager role assesses readiness and records the items only people can confirm; system administrators can too.",
+      "evidence": "server/db.js (BUILTIN_ROLES project_manager); server/api/readinessRoutes.js"
+    },
+    {
+      "dimension": "human_only_decisions",
+      "value": "Whether user acceptance testing, staff training, data conversion rehearsal, the cut-over plan, the city's roles, retention rules, production backups and vendor API testing are done is recorded by people; the system never decides them.",
+      "evidence": "server/readiness.js (MANUAL_ITEMS, recordItem)"
+    },
+    {
+      "dimension": "data",
+      "value": "Each readiness assessment is kept permanently with the reviewer's user id and email, start and finish times, days to go-live, every item's result and the verdict, and is audited.",
+      "evidence": "server/db.js (readiness_assessments); server/readiness.js (runAssessment)"
+    },
+    {
+      "dimension": "constraints",
+      "value": "Launch readiness depends on work outside the build: real GIS and Blue Stakes access, Lama and Sprypoint integrations (vendor coordination), user acceptance testing and data conversion.",
+      "evidence": "server/readiness.js (AUTOMATIC_CHECKS, MANUAL_ITEMS); tests/readinessAssessment.test.js (honestly not ready)"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "Which system holds the existing work order data, and how much of it must be converted, is not known.",
+      "evidence": "server/readiness.js (data_conversion.source_identified)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Check automatically what the system can verify about itself, and have people confirm the rest.",
+      "rationale": "Testing sign-off, training and data conversion are judgements the system cannot make; configuration and connections it can verify.",
+      "evidence": "server/readiness.js (AUTOMATIC_CHECKS, MANUAL_ITEMS)"
+    },
+    {
+      "statement": "Count a connection as live only with recent evidence of a successful call or data exchange.",
+      "rationale": "A setting saying live is not proof that the real service works.",
+      "evidence": "server/readiness.js (connectionCheck, vendorCheck)"
+    },
+    {
+      "statement": "Run the create, update and complete smoke test on a throwaway database with the same code.",
+      "rationale": "It checks the REQ-051 guardrail on every assessment without adding test work orders to real data.",
+      "evidence": "server/readiness.js (smokeTest)"
+    },
+    {
+      "statement": "Give the ready verdict only if every item passes, count a check that crashes as failed, and give no result if the assessment cannot be recorded.",
+      "rationale": "An assessment must never pass something it could not check, and every assessment must be on record with its reviewer.",
+      "evidence": "server/readiness.js (runAssessment); tests/readinessHttp.test.js (cannot be recorded)"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "Today's system is not ready: GIS and Blue Stakes run on stand-ins, Lama and Sprypoint are not integrated, and none of the people-confirmed items are done. Ready has only been shown with a fully prepared example.",
+      "evidence": "tests/readinessAssessment.test.js; server/readinessDemo.js"
+    },
+    {
+      "statement": "Whether GIS and Blue Stakes are live is declared when the server starts and then checked against the logs; there is no separate health check call to those services.",
+      "evidence": "server/api/server.js (connections); server/readiness.js (connectionCheck)"
+    },
+    {
+      "statement": "There is no readiness page; the checklist and assessments are used through the API.",
+      "evidence": "server/api/readinessRoutes.js"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/readiness.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/readinessAssessment.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/readinessHttp.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/readinessDemo.js (npm run demo:readiness)"
+    },
+    {
+      "kind": "commit",
+      "ref": "72d2026a4cf51157fe9a91e85cac7fa247a721de"
+    }
+  ],
+  "measurementEvents": []
+}
