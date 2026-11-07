@@ -16,6 +16,8 @@
     "demo:access": "node --no-warnings server/accessDemo.js",
     "demo:settings": "node --no-warnings server/settingsDemo.js",
     "demo:readiness": "node --no-warnings server/readinessDemo.js",
+    "vendor:check": "node --no-warnings server/vendorCheckCli.js",
+    "demo:vendors": "node --no-warnings server/vendorDemo.js",
     "demo:tickets": "node --no-warnings server/bluestakes/demo.js",
     "demo:public": "node --no-warnings server/public/demo.js",
     "public": "node --no-warnings server/public/serve.js"

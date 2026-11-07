@@ -392,6 +392,34 @@
       "title": "Today's system is not ready for launch",
       "body": "The first assessment is not ready: GIS and Blue Stakes run on stand-ins, Lama and Sprypoint are not integrated (vendor coordination has not started), and none of the people-confirmed items (user acceptance testing, data conversion, training, city roles, retention rules) are done. A ready verdict has only been shown with a fully prepared example. The smoke test runs on a throwaway database, not the live one.",
       "evidence": "tests/readinessAssessment.test.js (honestly not ready); server/readinessDemo.js"
+    },
+    {
+      "date": "2026-11-06",
+      "kind": "decision",
+      "title": "Vendor integrations are one-way feeds the vendors read",
+      "body": "The RFP says LAMA, SpryPoint and Madison AI integrations are one-way (REQ-042) and that these systems have no current interface but should be API (REQ-055). So the work order system publishes a read-only feed per vendor; nothing a vendor sends changes our data. If a vendor later needs us to push data to it, that is a separate addition.",
+      "evidence": "server/vendors.js; server/api/vendorFeedRoutes.js"
+    },
+    {
+      "date": "2026-11-06",
+      "kind": "decision",
+      "title": "Each vendor gets its own contract, and no free text unless agreed",
+      "body": "Madison AI keeps the full read format it indexes. Lama and SpryPoint get a proposed minimal set: identifiers, type, priority, status, address, coordinates, asset ids and dates. Titles, descriptions, notes and names are left out because staff and citizens can write personal details in them. Every record is checked against the contract before it is sent; data that does not fit is never sent.",
+      "evidence": "server/vendors.js (VENDORS, toVendorRecord); tests/vendors.test.js"
+    },
+    {
+      "date": "2026-11-06",
+      "kind": "decision",
+      "title": "Vendor coordination is tested and signed off in order, by people",
+      "body": "A conformance kit (npm run vendor:check) proves a feed against its contract with timeouts and capped retries. A tracker records contract shared, fields confirmed, sandbox tested and signed off for each vendor; a step needs the ones before it, a note is always required, and only a person with readiness:review can record it, so no vendor can sign off its own integration.",
+      "evidence": "server/vendorCheck.js; server/vendorCoordination.js"
+    },
+    {
+      "date": "2026-11-06",
+      "kind": "limitation",
+      "title": "No real vendor has connected yet",
+      "body": "The feeds, contracts, log and test kit are built and tested against the system itself. Lama and SpryPoint have not confirmed the fields they need, no vendor has run the conformance check against a test system, and SCADA, named in REQ-042, is not built. What Lama and SpryPoint do with work order data is not known.",
+      "evidence": "server/vendors.js (contract status proposed); tests/vendorFeedHttp.test.js"
     }
   ]
 }

@@ -780,7 +780,7 @@
     },
     {
       "name": "integration_endpoint",
-      "purpose": "One external system this connects to, with the last time its connection was checked.",
+      "purpose": "One external system this connects to. Built so far: the GIS and Blue Stakes connections behind their clients, and one-way feeds for Madison AI, Lama and SpryPoint, each with its own API client, contract and coordination steps.",
       "requirements": [
         "REQ-038",
         "REQ-040",
@@ -826,6 +826,114 @@
           "type": "has many",
           "to": "api_client",
           "via": "integration_endpoint_id"
+        }
+      ]
+    },
+    {
+      "name": "vendor_exchange_log",
+      "purpose": "Every request an integration vendor makes to its feed, whatever the outcome, with times and request details.",
+      "requirements": [
+        "REQ-054",
+        "REQ-055"
+      ],
+      "fields": [
+        {
+          "name": "id",
+          "type": "integer",
+          "note": "primary key"
+        },
+        {
+          "name": "request_id",
+          "type": "text",
+          "note": "links to the API request log"
+        },
+        {
+          "name": "vendor",
+          "type": "text"
+        },
+        {
+          "name": "client_name",
+          "type": "text"
+        },
+        {
+          "name": "contract_version",
+          "type": "integer"
+        },
+        {
+          "name": "params",
+          "type": "jsonb"
+        },
+        {
+          "name": "records_returned",
+          "type": "integer"
+        },
+        {
+          "name": "outcome",
+          "type": "text",
+          "note": "ok | denied | invalid | mismatch | error"
+        },
+        {
+          "name": "error",
+          "type": "text"
+        },
+        {
+          "name": "started_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "finished_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "duration_ms",
+          "type": "integer"
+        }
+      ],
+      "relationships": []
+    },
+    {
+      "name": "vendor_coordination",
+      "purpose": "Where each integration vendor is on the way to a signed-off integration, recorded by people.",
+      "requirements": [
+        "REQ-054"
+      ],
+      "fields": [
+        {
+          "name": "vendor",
+          "type": "text"
+        },
+        {
+          "name": "step",
+          "type": "text",
+          "note": "contract_shared | fields_confirmed | sandbox_tested | signed_off"
+        },
+        {
+          "name": "done",
+          "type": "boolean"
+        },
+        {
+          "name": "note",
+          "type": "text"
+        },
+        {
+          "name": "version",
+          "type": "integer"
+        },
+        {
+          "name": "updated_by",
+          "type": "uuid",
+          "note": "→ app_user"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "app_user",
+          "via": "updated_by"
         }
       ]
     },

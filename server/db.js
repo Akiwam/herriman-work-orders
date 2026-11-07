@@ -249,6 +249,36 @@ const SCHEMA = `
     results_json     TEXT NOT NULL           -- every item: key, kind, status, passed, detail
   );
 
+  -- Every request a vendor makes to its feed (STORY-009, REQ-054/055): accepted, refused, invalid or
+  -- failed. One row per request, written whatever the outcome; if it cannot be written, no data is sent.
+  CREATE TABLE IF NOT EXISTS vendor_exchange_log (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id       TEXT,                    -- the X-Request-Id, linking to api_request_log
+    vendor           TEXT NOT NULL,           -- the vendor key asked for, e.g. lama
+    client_name      TEXT NOT NULL,           -- who asked: the API client, 'anonymous' or 'invalid key'
+    contract_version INTEGER,
+    params_json      TEXT,                    -- since, limit, cursor as received
+    records_returned INTEGER NOT NULL DEFAULT 0,
+    outcome          TEXT NOT NULL,           -- ok | denied | invalid | mismatch | error
+    error            TEXT,
+    started_at       TEXT NOT NULL,
+    finished_at      TEXT NOT NULL,
+    duration_ms      INTEGER NOT NULL
+  );
+
+  -- Coordination with each integration vendor (STORY-009, REQ-054): contract shared, fields confirmed,
+  -- sandbox tested, signed off. Recorded by people; every change is audited.
+  CREATE TABLE IF NOT EXISTS vendor_coordination (
+    vendor     TEXT NOT NULL,
+    step       TEXT NOT NULL,
+    done       INTEGER NOT NULL,
+    note       TEXT NOT NULL,
+    version    INTEGER NOT NULL,
+    updated_by TEXT NOT NULL,              -- user id
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (vendor, step)
+  );
+
   CREATE TABLE IF NOT EXISTS user_roles (
     user_id    TEXT NOT NULL REFERENCES users(id),
     role_id    TEXT NOT NULL REFERENCES roles(id),

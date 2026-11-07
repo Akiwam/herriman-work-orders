@@ -493,20 +493,40 @@
       "criteria": [
         {
           "text": "Given a vendor API, when integrated, then data exchange is seamless.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a data request, when via API, then it is processed correctly.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: All vendor API interactions are logged with timestamps and request details.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/vendors.js",
+        "server/vendorCheck.js",
+        "server/vendorCheckCli.js",
+        "server/vendorCoordination.js",
+        "server/vendorDemo.js",
+        "server/api/vendorFeedRoutes.js",
+        "server/api/server.js",
+        "server/api/openapi.js",
+        "server/db.js",
+        "server/readiness.js",
+        "server/readinessDemo.js",
+        "package.json",
+        "knowledge/notes.json",
+        "knowledge/data-model.json"
+      ],
+      "tests_added": [
+        "tests/vendors.test.js",
+        "tests/vendorFeedHttp.test.js",
+        "tests/vendorCheck.test.js",
+        "tests/vendorCoordination.test.js"
+      ],
+      "notes": "One-way vendor feeds per the RFP (REQ-042: LAMA, SpryPoint, Madison AI one-way; REQ-055: no current interface, should be API): GET /api/v1/vendors/{vendor}/feed, each vendor with its own key and its own versioned contract - Madison AI the full agreed read format, Lama and SpryPoint a PROPOSED minimal set with no free text or names. Records are checked against the contract before sending (mismatch -> 500, nothing sent); cursor always returned so a vendor resumes with only what changed. Every request (ok, denied, invalid, mismatch, error) is in vendor_exchange_log with times, parameters and request id; if it cannot be logged nothing is sent. REQ-054: npm run vendor:check conformance kit (timeouts, capped retries, no retry on refused keys) and a per-vendor coordination tracker (contract shared, fields confirmed, sandbox tested, signed off; in order, audited, people only). HONEST STATE: no real vendor has connected; the Lama and SpryPoint field lists await vendor confirmation; SCADA (REQ-042) not built. Run `npm run demo:vendors`.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",

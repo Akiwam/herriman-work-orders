@@ -77,7 +77,7 @@ try {
   const at = new Date().toISOString();
   prepared.db.prepare("INSERT INTO gis_log (operation, attempt, outcome, started_at, finished_at, duration_ms) VALUES ('getAsset', 1, 'ok', ?, ?, 40)").run(at, at);
   prepared.db.prepare("INSERT INTO bluestakes_log (operation, attempt, outcome, started_at, finished_at, duration_ms) VALUES ('sendResponse', 1, 'ok', ?, ?, 40)").run(at, at);
-  for (const vendor of ['Lama', 'Sprypoint', 'Madison AI']) {
+  for (const vendor of ['Lama', 'SpryPoint', 'Madison AI']) {
     createApiClient(prepared.db, { name: vendor, actor: 'example' });
     prepared.db.prepare(`INSERT INTO api_request_log (request_id, received_at, finished_at, duration_ms, method, path, client_name, status)
                          VALUES (?, ?, ?, 12, 'GET', '/api/v1/work-orders', ?, 200)`).run(`example-${vendor}`, at, at, vendor);

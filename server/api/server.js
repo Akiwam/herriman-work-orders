@@ -12,6 +12,7 @@
 // Users, roles and the audit trail (STORY-007) — see accessRoutes.js.
 // System settings (STORY-008) — see settingsRoutes.js.
 // Operational readiness (STORY-010) — see readinessRoutes.js.
+// Vendor feeds for Madison AI, Lama and SpryPoint (STORY-009) — see vendorFeedRoutes.js.
 //
 // Locate tickets from the one-call centre (STORY-013) — needs scope locate_tickets:write:
 //   GET   /api/v1/locate-tickets/{id}            view a ticket
@@ -35,6 +36,8 @@ import { handleSettings, SETTINGS_BASE } from './settingsRoutes.js';
 import { SettingNotSavedError } from '../settings.js';
 import { handleReadiness, READINESS_BASE } from './readinessRoutes.js';
 import { AssessmentNotSavedError } from '../readiness.js';
+import { handleVendorFeed, isVendorFeedPath } from './vendorFeedRoutes.js';
+import { ContractMismatchError } from '../vendors.js';
 import { AccessDeniedError } from '../access.js';
 import { writeAudit } from '../workOrders.js';
 import { currentUserId } from '../requestContext.js';
@@ -166,6 +169,10 @@ export function createApiServer(db, {
         await handleVendor(req, res, db, url, { key: bearerKey(req), now });
         return;
       }
+      if (isVendorFeedPath(url.pathname)) {
+        await handleVendorFeed(req, res, db, url, { key: bearerKey(req), ...(now ? { now } : {}) });
+        return;
+      }
       if (url.pathname === READINESS_BASE || url.pathname.startsWith(`${READINESS_BASE}/`)) {
         await handleReadiness(req, res, db, url, { key: bearerKey(req), now, connections });
         return;
@@ -211,6 +218,10 @@ export function createApiServer(db, {
       else if (err instanceof ResponseFormatError) {
         console.error('API: response failed the published format check', err);
         send(res, 500, { error: 'response_format_error', message: 'Our response did not match the published format, so it was not sent.' });
+      }
+      else if (err instanceof ContractMismatchError) {
+        console.error('API: vendor data did not match its contract', err);
+        send(res, 500, { error: 'contract_mismatch', message: 'Our data did not match the published contract for this vendor, so nothing was sent. This has been logged.' });
       }
       else if (err instanceof AssessmentNotSavedError) send(res, 503, { error: 'assessment_not_saved', message: err.message }, { 'Retry-After': '5' });
       else if (err instanceof SettingNotSavedError) send(res, 503, { error: 'configuration_not_saved', message: err.message }, { 'Retry-After': '5' });

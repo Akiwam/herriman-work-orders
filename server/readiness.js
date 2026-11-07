@@ -115,7 +115,7 @@ export function recordItem(db, key, changes, { actorUserId, now = defaultNow, au
 // could not check.
 
 const DAY = 24 * 60 * 60 * 1000;
-export const VENDORS = ['Lama', 'Sprypoint', 'Madison AI']; // REQ-055
+export const VENDORS = ['Lama', 'SpryPoint', 'Madison AI']; // REQ-055
 const LIVE_EVIDENCE_DAYS = 7; // a live connection must have succeeded this recently
 const VENDOR_EVIDENCE_DAYS = 30;
 

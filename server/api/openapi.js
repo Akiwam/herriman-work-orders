@@ -10,6 +10,8 @@ import { PERMISSIONS } from '../access.js';
 import { AUDIT_FILTERS } from '../auditTrail.js';
 import { SETTINGS } from '../settings.js';
 import { ITEM_FIELDS } from './readinessRoutes.js';
+import { VENDORS } from '../vendors.js';
+import { STEPS } from '../vendorCoordination.js';
 import { MANUAL_ITEMS, STATUSES as READINESS_STATUSES, TARGET_DATE } from '../readiness.js';
 import { SUBMISSION_FIELDS, REVIEW_FIELDS } from './vendorRoutes.js';
 import { FORMATS as HEAT_MAP_FORMATS, STATUSES as HEAT_MAP_STATUSES, CELL_SIZE as HEAT_MAP_CELL } from '../heatMaps.js';
@@ -377,6 +379,55 @@ export function openApiDocument() {
             403: { description: 'Needs audit:read' },
             503: { description: 'The read could not be audited, so nothing was returned' },
           },
+        },
+      },
+      '/vendors': {
+        get: {
+          summary: 'The integration vendors (Madison AI, Lama, SpryPoint) and their published data contracts (no key needed; holds no data)',
+          description: 'One-way integrations (REQ-042): each vendor reads its own feed. Not the same as /vendor/…, which is where bidding vendors submit compliance answers.',
+          security: [],
+          responses: { 200: { description: 'Each vendor with its contract versions, their status (agreed or proposed) and the fields each receives' } },
+        },
+      },
+      '/vendors/{vendor}/feed': {
+        get: {
+          summary: 'A vendor reads work orders created or changed, oldest change first, shaped to its own contract (needs that vendor\'s scope)',
+          description: Object.entries(VENDORS).map(([k, v]) => `${v.name}: scope ${v.scope}; contract versions ${Object.keys(v.contracts).join(', ')} (${Object.values(v.contracts).map((c) => c.status).join(', ')}).`).join(' ')
+            + ' Every request is logged with its times, parameters and outcome. Every record is checked against the contract before it is sent.',
+          parameters: [
+            { name: 'vendor', in: 'path', required: true, schema: { type: 'string', enum: Object.keys(VENDORS) } },
+            { name: 'contract', in: 'query', schema: { type: 'integer' }, description: 'Contract version; the newest when left out' },
+            { name: 'since', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Only work orders changed after this time' },
+            { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 200, default: 50 } },
+            { name: 'cursor', in: 'query', schema: { type: 'string' }, description: 'next_cursor from your previous read. Save the latest one: it is given on every page, so the next read returns only what changed since.' },
+          ],
+          responses: {
+            200: { description: 'items shaped to the contract, contract_version, contract_status, next_cursor (always given) and has_more (fetch the next page now)' },
+            400: { description: 'Unknown parameter, bad date, limit or cursor, or a contract version that does not exist' },
+            401: { description: 'Missing or invalid API key' },
+            403: { description: 'The key is not this vendor\'s' },
+            404: { description: 'No such vendor' },
+            500: { description: 'contract_mismatch: our data did not fit the contract, so nothing was sent' },
+            503: { description: 'The request could not be logged or audited, so nothing was sent' },
+          },
+        },
+      },
+      '/vendors/{vendor}/coordination': {
+        get: {
+          summary: 'Where a vendor is on the way to a signed-off integration (REQ-054): contract shared, fields confirmed, sandbox tested, signed off (readiness:review)',
+          parameters: [{ name: 'vendor', in: 'path', required: true, schema: { type: 'string', enum: Object.keys(VENDORS) } }],
+          responses: { 200: { description: 'OK' }, 403: { description: 'Needs readiness:review' }, 404: { description: 'No such vendor' } },
+        },
+      },
+      '/vendors/{vendor}/coordination/{step}': {
+        put: {
+          summary: 'Record one coordination step (readiness:review, personal key). Steps are done in order; a note is always required.',
+          parameters: [
+            { name: 'vendor', in: 'path', required: true, schema: { type: 'string', enum: Object.keys(VENDORS) } },
+            { name: 'step', in: 'path', required: true, schema: { type: 'string', enum: STEPS } },
+          ],
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', additionalProperties: false, required: ['done', 'note'], properties: { done: { type: 'boolean' }, note: { type: 'string', maxLength: 2000 } } } } } },
+          responses: { 200: { description: 'Recorded (changed: true) or already so' }, 400: { description: 'Bad field, missing note, or a step out of order' }, 403: { description: 'Needs readiness:review with a personal key' } },
         },
       },
       '/readiness': {
