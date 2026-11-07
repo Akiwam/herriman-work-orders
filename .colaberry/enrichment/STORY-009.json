@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-009",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-11-07T02:34:16Z",
+  "sourceCommitSha": "0ad942d02f230b36711cd50f2fec5d8d99f452a0",
+  "factProposals": [
+    {
+      "dimension": "integrations",
+      "value": "Madison AI, Lama and SpryPoint each read a one-way, read-only feed of work orders created or changed, using their own API key and their own versioned data contract.",
+      "evidence": "server/vendors.js; server/api/vendorFeedRoutes.js; tests/vendorFeedHttp.test.js"
+    },
+    {
+      "dimension": "security_context",
+      "value": "Lama and SpryPoint receive no titles, descriptions, notes or names, because those can hold personal details; only Madison AI's agreed indexing format includes them.",
+      "evidence": "server/vendors.js (PERSONAL_FIELDS, MINIMAL_FIELDS); tests/vendors.test.js"
+    },
+    {
+      "dimension": "data",
+      "value": "vendor_exchange_log records every vendor feed request, accepted or refused, with the vendor, caller, contract version, parameters, records returned, outcome, times and request id.",
+      "evidence": "server/db.js (vendor_exchange_log); server/vendors.js (logExchange)"
+    },
+    {
+      "dimension": "approval_points",
+      "value": "Each vendor integration moves through contract shared, fields confirmed, sandbox tested and signed off, recorded in order by a person with readiness:review; a vendor cannot sign off its own integration.",
+      "evidence": "server/vendorCoordination.js; tests/vendorCoordination.test.js"
+    },
+    {
+      "dimension": "systems",
+      "value": "SCADA is named as a one-way integration in the RFP (REQ-042) but not in REQ-055; it is not built.",
+      "evidence": "server/vendors.js (header comment)"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "Which work order fields Lama and SpryPoint need, and what they do with them, is not known; their contracts are proposed until each vendor confirms.",
+      "evidence": "server/vendors.js (contract status proposed)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Build the vendor integrations as one-way feeds the vendors read.",
+      "rationale": "The RFP states these integrations are one-way (REQ-042) and that these systems have no current interface but should be API (REQ-055).",
+      "evidence": "server/vendors.js; server/api/vendorFeedRoutes.js"
+    },
+    {
+      "statement": "Check every record against the vendor's contract before sending, and send nothing if any record does not fit.",
+      "rationale": "A vendor must never receive data that breaks the agreed contract (the data mismatch failure path).",
+      "evidence": "server/vendors.js (toVendorRecord); tests/vendorFeedHttp.test.js (never sent)"
+    },
+    {
+      "statement": "Always return the feed cursor, including on the last page.",
+      "rationale": "A vendor that polls must be able to save its position and receive only what changed since; returning no cursor on the last page re-sent records.",
+      "evidence": "server/vendors.js (vendorFeed); tests/vendorFeedHttp.test.js (picks up only what changed)"
+    },
+    {
+      "statement": "Send no vendor data unless the request is logged and audited in the same transaction.",
+      "rationale": "Every vendor interaction must be on record with timestamps and request details.",
+      "evidence": "server/api/vendorFeedRoutes.js; tests/vendorFeedHttp.test.js (cannot be logged)"
+    },
+    {
+      "statement": "Provide a conformance kit with timeouts and capped retries, and never retry a refused key.",
+      "rationale": "REQ-054 asks for API testing to be coordinated with each vendor; a shared, repeatable check gives that testing a concrete form.",
+      "evidence": "server/vendorCheck.js; tests/vendorCheck.test.js"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "No real vendor has connected or run the conformance check; everything is tested against the system itself.",
+      "evidence": "tests/vendorFeedHttp.test.js; server/vendorDemo.js"
+    },
+    {
+      "statement": "The Lama and SpryPoint contracts are proposals pending each vendor's confirmation.",
+      "evidence": "server/vendors.js (VENDORS lama, sprypoint)"
+    },
+    {
+      "statement": "Only one-way reads are supported; pushing data to a vendor is not built.",
+      "evidence": "server/api/vendorFeedRoutes.js (405 for anything but GET)"
+    },
+    {
+      "statement": "SCADA is not integrated.",
+      "evidence": "server/vendors.js"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/vendors.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/vendorFeedHttp.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/vendorCheck.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/vendorCoordination.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/vendorDemo.js (npm run demo:vendors)"
+    },
+    {
+      "kind": "commit",
+      "ref": "0ad942d02f230b36711cd50f2fec5d8d99f452a0"
+    }
+  ],
+  "measurementEvents": []
+}
