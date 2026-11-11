@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-017",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-11-11T02:17:24Z",
+  "sourceCommitSha": "b1656bcb98e3057599ed9c405129b6719398faac",
+  "factProposals": [
+    {
+      "dimension": "outputs",
+      "value": "An administration area in the staff console for users and their roles, role permissions, system settings and the audit trail, with the actor, time, previous value and new value of every change.",
+      "evidence": "server/console/app.js (renderAdminUsers, renderAdminRoles, renderAdminSettings, renderAdminAudit); server/consoleLayoutCheck.js"
+    },
+    {
+      "dimension": "actors",
+      "value": "System administrators manage users, roles and settings; auditors read the audit trail but are refused on users and settings; field crew and supervisors are refused on administration.",
+      "evidence": "tests/adminConsole.test.js"
+    },
+    {
+      "dimension": "security_context",
+      "value": "The administration screens enforce nothing themselves: the API decides every read and change for the signed-in person, so no screen can grant what the API would refuse, and every refusal is recorded with who tried.",
+      "evidence": "tests/adminConsole.test.js (the console cannot grant what the API refuses)"
+    },
+    {
+      "dimension": "exceptions",
+      "value": "Removing the last administrator role is refused; a role change for a user id that does not exist is refused and the list refreshes; a deactivated user cannot be given roles.",
+      "evidence": "tests/adminConsole.test.js (last administrator; no longer exists)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Build the administration screens as an interface over the existing access, settings and audit APIs, with no permission logic in the console.",
+      "rationale": "The console can then never grant what the API refuses, and refusals are recorded in one place.",
+      "evidence": "server/console/app.js (adminChange, refusedScreen)"
+    },
+    {
+      "statement": "Treat 'a user who no longer exists' as an unknown user id, since users are deactivated rather than deleted.",
+      "rationale": "Keeping users means the audit trail always points at a real person.",
+      "evidence": "tests/adminConsole.test.js (no longer exists)"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "Defining new roles and editing user names are available through the API but not yet on these screens.",
+      "evidence": "server/console/app.js (renderAdminRoles is read-only)"
+    },
+    {
+      "statement": "The audit trail screen filters by type, action and dates; filtering by a particular user is available through the API only.",
+      "evidence": "server/console/app.js (renderAdminAudit); server/auditTrail.js (AUDIT_FILTERS)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/adminConsole.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/consolePages.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/adminDemo.js (npm run demo:admin)"
+    },
+    {
+      "kind": "commit",
+      "ref": "b1656bcb98e3057599ed9c405129b6719398faac"
+    }
+  ],
+  "measurementEvents": []
+}
