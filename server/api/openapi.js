@@ -333,6 +333,21 @@ export function openApiDocument() {
           responses: { 200: { description: 'item, history, gis_status (live | unavailable | not_connected | no_assets) and gis_records; ETag is the version', headers: etagHeader }, 404: { description: 'No such work order' } },
         },
       },
+      '/console/map': {
+        get: {
+          summary: 'Work orders for the map: placed exactly as the heat map places them, or listed as not on the map; checked against GIS (needs work_orders:read)',
+          description: 'Position: the stored coordinates (kept in line with GIS by the GIS sync), else the citizen\'s map pin. Filters are the heat map\'s own, '
+            + 'so the map and /heat-maps always count the same work orders. gis_check per point: matches, differs (sync pending), not_checked, not_linked; '
+            + 'gis_status: live, unavailable, not_connected, no_assets. If GIS is unavailable every work order is still returned.',
+          parameters: [
+            { name: 'from', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Created on or after' },
+            { name: 'to', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Created before' },
+            { name: 'status', in: 'query', schema: { type: 'string', enum: HEAT_MAP_STATUSES, default: 'all' } },
+            { name: 'work_types', in: 'query', schema: { type: 'string' }, description: 'Comma-separated' },
+          ],
+          responses: { 200: { description: 'points, unplaced, total, empty, gis_status' }, 400: { description: 'Bad filters' }, 401: { description: 'Not signed in' } },
+        },
+      },
       '/console/users': { get: { summary: 'People work can be assigned to (active, with work_orders:write)', responses: { 200: { description: 'OK' } } } },
       '/work-orders/{id}/workflow': {
         get: {

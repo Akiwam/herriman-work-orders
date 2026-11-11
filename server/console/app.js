@@ -14,8 +14,7 @@
   const NAV = [
     { route: 'work-orders', label: 'Work orders' },
     { route: 'intake', label: 'AI intake' },
-    { route: 'map', label: 'Map', story: 'STORY-016', soon: 'Work order activity on a map, with heat maps by type and area.',
-      basis: 'The heat maps it will show already exist in the system\'s API.' },
+    { route: 'map', label: 'Map' },
     { route: 'admin', label: 'Administration', story: 'STORY-017', soon: 'Users, roles, settings and workflows in one place.',
       basis: 'Everything it will manage already exists in the system\'s API.' },
     { route: 'integrations', label: 'Integrations & readiness', story: 'STORY-018', soon: 'Vendor feeds, GIS and Blue Stakes, and the go-live readiness assessment.',
@@ -427,6 +426,141 @@
     document.getElementById('reject').addEventListener('click', () => act('reject', { reason: document.getElementById('reason').value }, () => renderDraft(id)));
   }
 
+
+  // ---------- map and heat map (STORY-016) ----------
+  // Positions come only from /console/map, which places work orders exactly as the heat map does; this
+  // code projects them onto the screen and never decides where a work order is. No street layer: a
+  // basemap needs an outside map service the city has not provided, so the map is drawn on a grid.
+  const MAP_W = 900;
+  const MAP_H = 560;
+  const PAD = 34;
+  const NICE_DEGREES = [0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1];
+  const NICE_METRES = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
+
+  /** An equirectangular projection fitted to the points and cells, keeping east-west distances true at the middle latitude. */
+  function projection(lats, lngs) {
+    let [minLat, maxLat, minLng, maxLng] = [Math.min(...lats), Math.max(...lats), Math.min(...lngs), Math.max(...lngs)];
+    const spread = Math.max(maxLat - minLat, maxLng - minLng, 0.004);
+    minLat -= spread * 0.08; maxLat += spread * 0.08; minLng -= spread * 0.08; maxLng += spread * 0.08;
+    const k = Math.cos(((minLat + maxLat) / 2) * Math.PI / 180);
+    const scale = Math.min((MAP_W - 2 * PAD) / ((maxLng - minLng) * k), (MAP_H - 2 * PAD) / (maxLat - minLat));
+    const offX = (MAP_W - (maxLng - minLng) * k * scale) / 2;
+    const offY = (MAP_H - (maxLat - minLat) * scale) / 2;
+    return {
+      x: (lng) => offX + (lng - minLng) * k * scale,
+      y: (lat) => offY + (maxLat - lat) * scale,
+      bounds: { minLat, maxLat, minLng, maxLng },
+      metresPerPixel: 111320 / scale,
+    };
+  }
+
+  function gridAndScale(p) {
+    const { minLat, maxLat, minLng, maxLng } = p.bounds;
+    const step = NICE_DEGREES.find((s) => (maxLat - minLat) / s <= 8) ?? 1;
+    const lines = [];
+    for (let lat = Math.ceil(minLat / step) * step; lat <= maxLat; lat += step) {
+      lines.push(`<line class="grid" x1="0" x2="${MAP_W}" y1="${p.y(lat).toFixed(1)}" y2="${p.y(lat).toFixed(1)}"/><text class="grid-label" x="4" y="${(p.y(lat) - 3).toFixed(1)}">${lat.toFixed(4)}°</text>`);
+    }
+    for (let lng = Math.ceil(minLng / step) * step; lng <= maxLng; lng += step) {
+      lines.push(`<line class="grid" y1="0" y2="${MAP_H}" x1="${p.x(lng).toFixed(1)}" x2="${p.x(lng).toFixed(1)}"/><text class="grid-label" y="${MAP_H - 4}" x="${(p.x(lng) + 3).toFixed(1)}">${lng.toFixed(4)}°</text>`);
+    }
+    const metres = NICE_METRES.filter((m) => m / p.metresPerPixel <= 160).pop() ?? NICE_METRES[0];
+    const px = metres / p.metresPerPixel;
+    const x0 = MAP_W - px - 16;
+    lines.push(`<rect class="scale-bg" x="${(x0 - 8).toFixed(1)}" y="${MAP_H - 44}" width="${(px + 16).toFixed(1)}" height="30" rx="6"/>
+      <line class="scale" x1="${x0.toFixed(1)}" x2="${(x0 + px).toFixed(1)}" y1="${MAP_H - 22}" y2="${MAP_H - 22}"/>
+      <text class="scale-label" x="${(x0 + px / 2).toFixed(1)}" y="${MAP_H - 28}" text-anchor="middle">${metres >= 1000 ? `${metres / 1000} km` : `${metres} m`}</text>`);
+    return lines.join('');
+  }
+
+  async function renderMap(params) {
+    mount('map', '<p class="muted">Loading the map…</p>');
+    if (!me?.permissions) {
+      const who = await api('GET', '/console/me');
+      if (who.status === 200) { me = who.body; store.set('hwo.me', JSON.stringify(me)); }
+    }
+    const canHeat = me?.permissions?.includes('heatmaps:read');
+    const filters = Object.fromEntries(['from', 'to', 'status', 'work_types'].map((k) => [k, params[k] ?? '']).filter(([, v]) => v));
+    const qs = new URLSearchParams(filters);
+    const showHeat = canHeat && params.heat === '1';
+    const [res, heat] = await Promise.all([
+      api('GET', `/console/map?${qs}`),
+      showHeat ? api('GET', `/heat-maps?${qs}`) : Promise.resolve(null),
+    ]);
+    if (res.status !== 200) return mount('map', `<h1>Map</h1><p class="banner bad">${esc(res.body?.problems?.join('; ') ?? res.body?.message ?? 'The map could not be loaded.')}</p>`);
+    const m = res.body;
+    const cells = heat?.status === 200 ? heat.body.features : [];
+
+    const lats = [...m.points.map((pt) => pt.lat), ...cells.flatMap((c) => c.geometry.coordinates[0].map((xy) => xy[1]))];
+    const lngs = [...m.points.map((pt) => pt.lng), ...cells.flatMap((c) => c.geometry.coordinates[0].map((xy) => xy[0]))];
+    let svg = '';
+    if (lats.length) {
+      const p = projection(lats, lngs);
+      const shade = (share) => Math.min(5, Math.max(1, Math.ceil(share * 5)));
+      const heatLayer = cells.map((c) => {
+        const ring = c.geometry.coordinates[0].map(([lng, lat]) => `${p.x(lng).toFixed(1)},${p.y(lat).toFixed(1)}`).join(' ');
+        return `<polygon class="heat-cell heat-${shade(c.properties.share)}" points="${ring}"><title>${c.properties.count} work order${c.properties.count === 1 ? '' : 's'} in this cell</title></polygon>`;
+      }).join('');
+      const dots = m.points.map((pt) => {
+        const cls = ['pt', `pt-${pt.status}`, pt.position_from === 'citizen map pin' ? 'pt-pin' : ''].join(' ');
+        const ring = pt.gis_check === 'differs' ? `<circle class="pt-differs" cx="${p.x(pt.lng).toFixed(1)}" cy="${p.y(pt.lat).toFixed(1)}" r="11"/>` : '';
+        const note = pt.gis_check === 'differs' ? ' · GIS differs from the stored record (sync pending)' : pt.gis_check === 'matches' ? ' · confirmed by GIS' : '';
+        return `<a href="#/work-orders/${esc(pt.id)}">${ring}<circle class="${cls}" cx="${p.x(pt.lng).toFixed(1)}" cy="${p.y(pt.lat).toFixed(1)}" r="6"><title>${esc(pt.title)} (${esc(pt.status)}) · ${esc(pt.position_from)}${note}</title></circle></a>`;
+      }).join('');
+      svg = `<svg class="map" viewBox="0 0 ${MAP_W} ${MAP_H}" role="img" aria-label="Work orders plotted at their coordinates">
+        <rect class="map-bg" width="${MAP_W}" height="${MAP_H}"/>${gridAndScale(p)}${heatLayer}${dots}</svg>`;
+    }
+
+    const range = [filters.from && `from ${filters.from}`, filters.to && `before ${filters.to}`].filter(Boolean).join(' and ');
+    const gisBanner = {
+      unavailable: '<p class="banner warn">GIS is unavailable right now, so positions could not be confirmed against it. Every work order is still shown, from its stored record.</p>',
+      not_connected: '<p class="banner warn">GIS is not connected; positions are shown from the stored records.</p>',
+    }[m.gis_status] ?? '';
+    const differs = m.points.filter((pt) => pt.gis_check === 'differs');
+    const filterBar = `<form class="toolbar" id="map-filters">
+      <label class="muted inline-label" for="m-from">Created from</label><input type="date" id="m-from" value="${esc(filters.from ?? '')}">
+      <label class="muted inline-label" for="m-to">before</label><input type="date" id="m-to" value="${esc(filters.to ?? '')}">
+      <label class="muted inline-label" for="m-status">Status</label>
+      <select id="m-status">${['all', 'open', 'completed'].map((s) => `<option ${(filters.status ?? 'all') === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      <label class="muted inline-label" for="m-types">Work types</label><input id="m-types" placeholder="e.g. pothole,streetlight" value="${esc(filters.work_types ?? '')}">
+      ${canHeat ? `<label class="inline-label check"><input type="checkbox" id="m-heat" ${showHeat ? 'checked' : ''}> Heat map</label>` : ''}
+      <button type="submit">Show</button></form>`;
+    const body = m.empty
+      ? `<div class="card empty"><h2>No work orders ${range ? `created ${esc(range)}` : 'yet'}</h2><p>Choose a wider date range, or clear the filters.</p></div>`
+      : `<div class="grid2 map-grid">
+          <section class="card">${svg || '<p class="muted">None of these work orders has coordinates to plot.</p>'}
+            <p class="legend"><span class="key pt-open"></span> open <span class="key pt-completed"></span> completed <span class="key pt-pin"></span> placed by the citizen's map pin
+              ${differs.length ? '<span class="key pt-differs-key"></span> GIS differs (sync pending)' : ''}</p>
+            ${showHeat ? '<p class="legend">Shaded squares: the heat map, darker where more work orders are concentrated.</p>' : ''}
+            <p class="muted">Drawn on a coordinate grid: no street layer, because a basemap needs a map service the city has not provided. The same data opens on the city's own GIS map as GeoJSON.</p>
+          </section>
+          <div class="stack">
+            <section class="card"><h2>On this map</h2><dl class="facts">
+              <dt>Plotted</dt><dd>${m.points.length}${m.truncated ? ' (first 5,000)' : ''}</dd>
+              <dt>Not on the map</dt><dd>${m.unplaced.length}</dd>
+              <dt>GIS check</dt><dd>${esc({ live: 'confirmed against GIS', unavailable: 'GIS unavailable', not_connected: 'GIS not connected', no_assets: 'no GIS assets linked' }[m.gis_status] ?? m.gis_status)}</dd>
+              ${showHeat && heat?.status !== 200 ? `<dt>Heat map</dt><dd>${esc(heat?.body?.message ?? 'not available')}</dd>` : ''}
+            </dl></section>
+            ${differs.length ? `<section class="card"><h2>GIS differs</h2><ol class="history">${differs.map((pt) => `<li><a href="#/work-orders/${esc(pt.id)}">${esc(pt.title)}</a><br><span class="when">Stored ${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)} · GIS now ${pt.gis_location.lat.toFixed(5)}, ${pt.gis_location.lng.toFixed(5)}</span></li>`).join('')}</ol></section>` : ''}
+            <section class="card"><h2>Not on the map</h2>${m.unplaced.length
+              ? `<ol class="history">${m.unplaced.slice(0, 12).map((u) => `<li><a href="#/work-orders/${esc(u.id)}">${esc(u.title)}</a><br><span class="when">${esc(u.location ?? 'no location')} · ${esc(u.reason)}</span></li>`).join('')}</ol>${m.unplaced.length > 12 ? `<p class="muted">and ${m.unplaced.length - 12} more</p>` : ''}`
+              : '<p class="muted">Every work order here has coordinates.</p>'}</section>
+          </div>
+        </div>`;
+
+    mount('map', `<h1>Map</h1><p class="sub">Where work orders are, placed exactly as the heat map places them${range ? `, created ${esc(range)}` : ''}.</p>${filterBar}${gisBanner}${body}`);
+    document.getElementById('map-filters').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const next = {
+        from: document.getElementById('m-from').value, to: document.getElementById('m-to').value,
+        status: document.getElementById('m-status').value === 'all' ? '' : document.getElementById('m-status').value,
+        work_types: document.getElementById('m-types').value.replace(/\s+/g, ''),
+        heat: document.getElementById('m-heat')?.checked ? '1' : '',
+      };
+      location.hash = `#/map?${new URLSearchParams(Object.entries(next).filter(([, v]) => v))}`;
+    });
+  }
+
   // ---------- screens still to come ----------
   function renderPlaceholder(route) {
     const n = NAV.find((x) => x.route === route);
@@ -456,6 +590,7 @@
         if (parts[1]) return await renderDetail(decodeURIComponent(parts[1]));
         return await renderList(Object.fromEntries(new URLSearchParams(query ?? '')));
       }
+      if (parts[0] === 'map') return await renderMap(Object.fromEntries(new URLSearchParams(query ?? '')));
       if (parts[0] === 'intake') {
         if (parts[1]) return await renderDraft(decodeURIComponent(parts[1]));
         return await renderIntakeQueue(Object.fromEntries(new URLSearchParams(query ?? '')));

@@ -38,7 +38,12 @@ export async function exampleSystem({ workOrders = 60 } = {}) {
   grantRole(db, { userId: sam.id, roleId: 'field_crew' }, as);
   const key = issueUserKey(db, admin.id, as).key;
   const samKey = issueUserKey(db, sam.id, as).key;
-  const gis = createGisClient(createStandInGis(loadStandInAssets()), { log: createGisLogger(db), timeoutMs: 1000, attempts: 2, delayMs: 10 });
+  const standIn = createStandInGis(loadStandInAssets());
+  const gis = createGisClient(standIn, { log: createGisLogger(db), timeoutMs: 1000, attempts: 2, delayMs: 10 });
+  // Example coordinates for the map (STORY-016): three made-up clusters around the stand-in assets.
+  const clusters = [[40.5141, -112.0330], [40.5060, -112.0210], [40.5210, -112.0455]];
+  let seed = 11;
+  const jitter = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 0.006;
   const types = ['pothole', 'streetlight', 'water_leak', 'hydrant', 'graffiti'];
   let detailId = null;
   for (let i = 0; i < workOrders; i += 1) {
@@ -48,6 +53,10 @@ export async function exampleSystem({ workOrders = 60 } = {}) {
       : { title: `${types[i % types.length].replace('_', ' ')} report ${i + 1}`, work_type: types[i % types.length], location_text: `Stand-in location ${i + 1}, Example Way`, created_by: 'clerk.example' };
     const wo = await createWorkOrder(db, input, { gis, now: () => at });
     if (i % 3 === 0) assignWorkOrder(db, wo.id, { assigneeUserId: sam.id, actor: 'jane.admin@herriman.example' });
+    if (i > 0 && i % 3 !== 0) {
+      const [lat, lng] = clusters[Math.floor(i / 3) % clusters.length];
+      db.prepare('UPDATE work_orders SET latitude = ?, longitude = ? WHERE id = ?').run(lat + jitter(), lng + jitter(), wo.id);
+    }
     if (i === 0) {
       detailId = wo.id;
       await updateWorkOrder(db, wo.id, { priority: 'high', description: 'Reported by a resident; the pole is leaning slightly.' }, { actor: 'jane.admin@herriman.example' });
@@ -63,6 +72,7 @@ export async function exampleSystem({ workOrders = 60 } = {}) {
     await submitPublicRequest(db, { description, category, location_text, submission_id: `example-intake-${i + 1}` }, { ip: '192.0.2.10' });
   }
   for (const t of loadStandInTickets().slice(0, 2)) await receiveLocateTicket(db, t);
+  standIn.editAsset('SL-0001', { location: { lat: 40.5155, lng: -112.0318 } }); // GIS moved it; the sync has not run: the map flags it
   const drafts = listDrafts(db);
   const undeterminedDraftId = drafts.find((d) => d.undetermined.length)?.id;
   const { workOrder: approved } = await approveDraft(db, drafts.find((d) => d.proposed.work_type === 'pothole').id, { actorUserId: admin.id, changes: { priority: 'high' } });
@@ -88,7 +98,9 @@ export async function runLayoutCheck({ screenshots = null } = {}) {
     ['AI intake queue', `#/intake?session=${token}`, /Must approve[\s\S]*Work type needed/],
     ['AI intake draft (field to fill in)', `#/intake/${undeterminedDraftId}?session=${token}`, /Agent proposed[\s\S]*not determined[\s\S]*Approve and create the work order/],
     ['work order approved from AI intake', `#/work-orders/${approvedWorkOrderId}?session=${token}`, /From AI intake[\s\S]*Approved by/],
-    ['map (placeholder)', `#/map?session=${token}`, /STORY-016 · coming next<\/p>/],
+    ['map', `#/map?session=${token}`, /<svg class="map"[\s\S]*Not on the map[\s\S]*GIS differs/],
+    ['map with the heat map layer', `#/map?heat=1&session=${token}`, /heat-cell heat-/],
+    ['map, date range with no work orders', `#/map?from=2025-01-01&to=2025-02-01&session=${token}`, /No work orders created from 2025-01-01 and before 2025-02-01/],
     ['administration (placeholder)', `#/admin?session=${token}`, /STORY-017 · coming next<\/p>/],
     ['integrations & readiness (placeholder)', `#/integrations?session=${token}`, /STORY-018 · coming next<\/p>/],
   ];

@@ -7,6 +7,8 @@
 //   GET    /api/v1/console/work-orders        the list: status, assignee, location; ?status=&assignee=&limit=&cursor=
 //   GET    /api/v1/console/work-orders/{id}   one work order: record, full history and GIS record (live, or the saved copy)
 //   GET    /api/v1/console/users              people work can be assigned to
+//   GET    /api/v1/console/map                every matching work order placed as the heat map places it, or listed
+//                                             as not on the map; ?from=&to=&status=&work_types= (STORY-016)
 // The reads need work_orders:read and are audited like every other read.
 
 import { readFileSync } from 'node:fs';
@@ -16,6 +18,7 @@ import { writeAudit, ValidationError } from '../workOrders.js';
 import { startSession, endSession } from '../consoleSessions.js';
 import { AuditUnavailableError, auditedRead, authenticate } from './clients.js';
 import { listConsoleWorkOrders, consoleWorkOrderDetail, withLiveGis, assignableUsers } from '../consoleViews.js';
+import { mapPoints, withGisCheck } from '../mapView.js';
 
 export const CONSOLE_API = '/api/v1/console';
 const SESSION = `${CONSOLE_API}/session`;
@@ -24,8 +27,9 @@ const LIST = `${CONSOLE_API}/work-orders`;
 const ONE = new RegExp(`^${LIST}/([^/]+)$`);
 const USERS = `${CONSOLE_API}/users`;
 const ME = `${CONSOLE_API}/me`;
+const MAP = `${CONSOLE_API}/map`;
 
-export const isConsoleApiPath = (pathname) => [SESSION, LIST, USERS, ME].includes(pathname) || ONE.test(pathname);
+export const isConsoleApiPath = (pathname) => [SESSION, LIST, USERS, ME, MAP].includes(pathname) || ONE.test(pathname);
 
 // The console's own files, served with the same strict security headers as the public page.
 const PAGE_FILES = {
@@ -60,6 +64,16 @@ export async function handleConsoleApi(req, res, db, url, { key, now, gis }) {
     return;
   }
   const one = ONE.exec(url.pathname);
+  if (url.pathname === MAP) {
+    if (req.method !== 'GET') return send(res, 405, { error: 'method_not_allowed', message: 'Use GET here' }, { Allow: 'GET' });
+    const params = Object.fromEntries(url.searchParams);
+    if (typeof params.work_types === 'string') params.work_types = params.work_types.split(',').map((t) => t.trim()).filter(Boolean);
+    // Access is checked and the read audited first; only then is GIS asked about the linked assets.
+    // `items` is only there so the audit entry records how many points were returned; it is not sent.
+    const map = auditedRead(db, { key, operation: 'consoleMap', params }, () => { const m = mapPoints(db, params); return { ...m, items: m.points }; }, opts);
+    const { items: _counted, ...body } = map;
+    return send(res, 200, await withGisCheck(body, gis));
+  }
   if (url.pathname === LIST || url.pathname === USERS || one) {
     if (req.method !== 'GET') {
       send(res, 405, { error: 'method_not_allowed', message: 'The console reads here; changes go through /api/v1/work-orders' }, { Allow: 'GET' });

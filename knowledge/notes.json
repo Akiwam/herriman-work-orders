@@ -476,6 +476,27 @@
       "title": "The intake agent is a rule-based stand-in until an AI model is provided",
       "body": "Drafting uses keyword rules over a placeholder list of work types, and every draft and audit entry says so. A model can be plugged in behind the same interface (its output is checked; the stand-in takes over if it fails), but no model or key has been provided. Work orders created directly through the work order API by staff or authorised systems do not pass through intake; their named caller is the creator.",
       "evidence": "server/intake.js (STANDIN_AGENT, WORK_TYPES, draftWith)"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "decision",
+      "title": "The map places work orders exactly as the heat map does",
+      "body": "A work order is plotted at its stored coordinates (kept in line with GIS by the GIS sync), or at the citizen's map pin, using the heat map's own filters, so the map and the heat map always count the same work orders. The console draws what the map endpoint returns and never works out positions itself, so what is displayed and what is stored cannot disagree.",
+      "evidence": "server/mapView.js (mapPoints); tests/mapView.test.js (always count the same work orders)"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "decision",
+      "title": "A GIS difference is flagged, not silently moved",
+      "body": "The map asks GIS for each linked asset's current location. If GIS has moved an asset before the sync runs, the work order stays where it is stored and is flagged with GIS's position alongside; the sync then brings the record in line. If GIS cannot answer, the map says so and still shows every work order from the stored record.",
+      "evidence": "server/mapView.js (withGisCheck)"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "limitation",
+      "title": "The map has no street layer",
+      "body": "A street basemap needs an outside map service (and the console's security policy only loads from its own server). The map is drawn on a coordinate grid with a scale bar; the same data opens on the city's own GIS map as GeoJSON. Work orders typed in without coordinates are listed beside the map, not placed.",
+      "evidence": "server/console/app.js (renderMap); server/api/publicRoutes.js (PAGE_SECURITY_HEADERS)"
     }
   ]
 }
