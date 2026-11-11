@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-014",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-11-11T01:19:46Z",
+  "sourceCommitSha": "b1e7b563e1bede2806b6ffd50cbce52d265a815e",
+  "factProposals": [
+    {
+      "dimension": "outputs",
+      "value": "A signed-in staff console at /console: a work order list with status, workflow step, assignee and location, and a detail screen with the full history and GIS record on one screen.",
+      "evidence": "server/console/app.js; server/consoleViews.js; tests/consoleViews.test.js"
+    },
+    {
+      "dimension": "data",
+      "value": "Work orders now record an assignee: an active person allowed to work on work orders, or unassigned; every assignment is audited and versioned.",
+      "evidence": "server/workOrders.js (assignWorkOrder); server/db.js (work_orders.assigned_to); tests/consoleSessions.test.js"
+    },
+    {
+      "dimension": "security_context",
+      "value": "Staff sign in to the console with their personal key once; the browser keeps only a session token for that tab, the server stores only its hash, and the session ends after 30 minutes idle, 8 hours, sign-out or deactivation.",
+      "evidence": "server/consoleSessions.js; tests/consoleSessions.test.js"
+    },
+    {
+      "dimension": "exceptions",
+      "value": "When GIS does not answer while a work order is opened, the console shows the copy of the GIS record saved when the work order was created, marked as such, and the rest of the screen works.",
+      "evidence": "server/consoleViews.js (withLiveGis); tests/consoleViews.test.js (GIS is unavailable)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Change data from the console only through the existing work order API, using the signed-in person's session.",
+      "rationale": "Every console action then lands in the same audit trail, with the same version check, as any API call.",
+      "evidence": "server/console/app.js; tests/consoleSessions.test.js (audited exactly like the API)"
+    },
+    {
+      "statement": "Add an assignee to work orders.",
+      "rationale": "The console must show who each work order is assigned to, and the system did not record it.",
+      "evidence": "server/workOrders.js (assignWorkOrder)"
+    },
+    {
+      "statement": "Check the 1440x900 layout automatically in a headless browser, requiring each screen's own content to appear.",
+      "rationale": "The screens are captured for the proposal exhibit; a check by eye can miss overflow, and a fallback page must not pass.",
+      "evidence": "server/consoleLayoutCheck.js; tests/consolePages.test.js"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "The console's keep-the-edit-and-retry behaviour after a session expires has been reviewed but is not exercised by an automated test.",
+      "evidence": "server/console/app.js (signInAgain)"
+    },
+    {
+      "statement": "The AI intake, map, administration and integrations screens are placeholders until their own stories are built.",
+      "evidence": "server/console/app.js (NAV, renderPlaceholder)"
+    },
+    {
+      "statement": "The 1440x900 check needs Edge (or another Chromium browser via EDGE_PATH); without it that test is skipped.",
+      "evidence": "server/consoleLayoutCheck.js (edgeAvailable)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/consoleSessions.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/consoleViews.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/consolePages.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/consoleServe.js (npm run console)"
+    },
+    {
+      "kind": "commit",
+      "ref": "b1e7b563e1bede2806b6ffd50cbce52d265a815e"
+    }
+  ],
+  "measurementEvents": []
+}
