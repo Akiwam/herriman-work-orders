@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-015",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-11-11T01:51:02Z",
+  "sourceCommitSha": "27ca901557063d073a70266c7d6307a7dfd9f318",
+  "factProposals": [
+    {
+      "dimension": "current_workflow",
+      "value": "Citizen requests and Blue Stakes tickets now arrive as drafted work orders; a work order is created only when a named person approves the draft.",
+      "evidence": "server/intake.js; server/publicRequests.js; tests/intakeReview.test.js"
+    },
+    {
+      "dimension": "approval_points",
+      "value": "Approving, correcting or rejecting an intake draft needs intake:approve (Supervisor or System administrator) with the person's own key or console session; outside systems cannot approve.",
+      "evidence": "server/intake.js (INTAKE_APPROVE); server/api/intakeRoutes.js; tests/intakeHttp.test.js"
+    },
+    {
+      "dimension": "ai_opportunities",
+      "value": "The intake agent drafts title, work type, priority, location and description from each source; an AI model can replace the rule-based stand-in behind the same interface, with its output checked before use.",
+      "evidence": "server/intake.js (proposeDraft, draftWith, checkDraft)"
+    },
+    {
+      "dimension": "human_only_decisions",
+      "value": "Whether a drafted work order goes ahead, and in what form, is decided by a named person; fields the agent could not work out are filled in by that person.",
+      "evidence": "server/intake.js (approveDraft, reviewerVersion); tests/intakeReview.test.js"
+    },
+    {
+      "dimension": "outputs",
+      "value": "An approval queue stating, for each draft, who performs the work and who must approve it, and a draft screen showing the agent's proposal next to the reviewer's version.",
+      "evidence": "server/console/app.js (renderIntakeQueue, renderDraft); server/consoleLayoutCheck.js"
+    },
+    {
+      "dimension": "unknowns",
+      "value": "Which AI model the intake agent should use, the city's real list of work types, and who in the city performs and approves each kind of work are not known.",
+      "evidence": "server/intake.js (STANDIN_AGENT, WORK_TYPES, routeFor)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Route citizen requests to drafts instead of creating work orders at once.",
+      "rationale": "No work order may reach the live queue without a named person approving it; this changed STORY-003 behaviour with the student's approval.",
+      "evidence": "server/publicRequests.js (submitPublicRequest); tests/publicRequests.test.js"
+    },
+    {
+      "statement": "Use a clearly labelled rule-based stand-in for the agent until an AI model is provided.",
+      "rationale": "No model or key is available; the human approval step is real either way, and a model plugs in later without other changes.",
+      "evidence": "server/intake.js (STANDIN_AGENT, ruleBasedDrafter)"
+    },
+    {
+      "statement": "Leave undetermined fields empty with a reason, and block approval until a person fills them in.",
+      "rationale": "A guessed field would look like data the agent knew.",
+      "evidence": "server/intake.js (ruleBasedDrafter, REQUIRED_TO_APPROVE)"
+    },
+    {
+      "statement": "Claim a draft before creating its work order, derive the work order's request id from the draft, and check the source fingerprint at approval.",
+      "rationale": "Two reviewers at once must produce one work order, a retry must never duplicate it, and an approval must match the source as drafted.",
+      "evidence": "server/intake.js (decidable, approveDraft); tests/intakeReview.test.js"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "The intake agent is a keyword-based stand-in with a placeholder list of work types; no AI model is connected.",
+      "evidence": "server/intake.js (WORK_TYPES)"
+    },
+    {
+      "statement": "Every draft is routed to field crew to perform and a supervisor to approve; the city's real routing is not known.",
+      "evidence": "server/intake.js (routeFor)"
+    },
+    {
+      "statement": "Work orders created directly through the work order API by staff or authorised systems do not pass through intake; their named caller is the creator.",
+      "evidence": "server/api/workOrderWrites.js"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/intakeDrafts.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/intakeReview.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/intakeHttp.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/intakeDemo.js (npm run demo:intake)"
+    },
+    {
+      "kind": "commit",
+      "ref": "27ca901557063d073a70266c7d6307a7dfd9f318"
+    }
+  ],
+  "measurementEvents": []
+}
