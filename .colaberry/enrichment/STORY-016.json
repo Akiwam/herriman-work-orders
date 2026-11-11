@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-016",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-11-11T02:07:03Z",
+  "sourceCommitSha": "1a742c23a7a051a74a7a3e0d35766dc57240aa46",
+  "factProposals": [
+    {
+      "dimension": "outputs",
+      "value": "A map in the staff console plotting every work order at its coordinates, with the heat map as a layer, filtered by date range, status and work type; work orders without coordinates are listed beside it with the reason.",
+      "evidence": "server/console/app.js (renderMap); server/mapView.js; server/consoleLayoutCheck.js"
+    },
+    {
+      "dimension": "actors",
+      "value": "City planners (and supervisors and administrators) see the heat map layer; anyone who can read work orders sees the plotted points.",
+      "evidence": "server/console/app.js (canHeat); server/db.js (BUILTIN_ROLES)"
+    },
+    {
+      "dimension": "integrations",
+      "value": "The map checks each plotted work order's linked asset against GIS through the existing GIS client and flags any difference from the stored record.",
+      "evidence": "server/mapView.js (withGisCheck); tests/mapView.test.js"
+    },
+    {
+      "dimension": "exceptions",
+      "value": "When GIS does not answer, the map says so and still shows every work order from its stored record; a date range with no work orders is shown as empty, not as an error.",
+      "evidence": "tests/mapView.test.js (GIS times out; a date range with no work orders)"
+    },
+    {
+      "dimension": "constraints",
+      "value": "No street basemap is shown: a basemap needs an outside map service that the city has not provided, and the console only loads content from its own server.",
+      "evidence": "server/console/app.js (renderMap); server/api/publicRoutes.js (PAGE_SECURITY_HEADERS)"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Place work orders on the map with the heat map's own rule and filters.",
+      "rationale": "The map and the heat map must never disagree about which work orders are where.",
+      "evidence": "server/mapView.js (mapPoints uses normaliseParams); tests/mapView.test.js (always count the same work orders)"
+    },
+    {
+      "statement": "Have the console draw exactly what the map endpoint returns, never computing positions itself.",
+      "rationale": "What is displayed and what is stored cannot disagree.",
+      "evidence": "server/api/consoleRoutes.js (/console/map); tests/mapView.test.js (returns exactly what mapPoints gives)"
+    },
+    {
+      "statement": "Flag a GIS difference rather than move the point.",
+      "rationale": "The stored record is what the rest of the system uses; the GIS sync resolves the difference, and the map shows both positions until it does.",
+      "evidence": "server/mapView.js (withGisCheck)"
+    },
+    {
+      "statement": "Draw the map on a coordinate grid without a street layer.",
+      "rationale": "A basemap needs an outside map service and account the city has not provided; the city's own GIS can show the same data as GeoJSON.",
+      "evidence": "server/console/app.js (renderMap)"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "There is no street basemap, and GIS assets are not shown as reference points because the GIS client fetches assets by id and cannot list them.",
+      "evidence": "server/gis.js (createGisClient)"
+    },
+    {
+      "statement": "Work orders entered with a freeform location only cannot be placed on the map.",
+      "evidence": "server/mapView.js (mapPoints unplaced)"
+    },
+    {
+      "statement": "At most 5,000 work orders are plotted at once.",
+      "evidence": "server/mapView.js (MAX_POINTS)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/mapView.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/consolePages.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/mapDemo.js (npm run demo:map)"
+    },
+    {
+      "kind": "commit",
+      "ref": "1a742c23a7a051a74a7a3e0d35766dc57240aa46"
+    }
+  ],
+  "measurementEvents": []
+}
