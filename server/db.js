@@ -25,7 +25,8 @@ const SCHEMA = `
     version       INTEGER NOT NULL DEFAULT 1, -- +1 on every change; lets callers detect a stale update (STORY-004)
     workflow_id   TEXT,                 -- the workflow version it follows; kept even after a newer version is published (STORY-006)
     current_step  TEXT,                 -- its step in that workflow
-    step_entered_at TEXT                -- when it reached that step
+    step_entered_at TEXT,               -- when it reached that step
+    assigned_to   TEXT                  -- user id of the person it is assigned to; NULL = unassigned (STORY-014)
   );
 
   -- Requests citizens submit on the public site (STORY-003, REQ-037). Each one creates a work order.
@@ -279,6 +280,19 @@ const SCHEMA = `
     PRIMARY KEY (vendor, step)
   );
 
+  -- Signed-in console sessions (STORY-014). A person signs in with their personal key and gets a
+  -- short-lived session token; only its hash is stored. Ends after 30 minutes idle or 8 hours in all.
+  CREATE TABLE IF NOT EXISTS console_sessions (
+    id           TEXT PRIMARY KEY,
+    token_prefix TEXT NOT NULL UNIQUE,
+    token_hash   TEXT NOT NULL,
+    user_id      TEXT NOT NULL REFERENCES users(id),
+    created_at   TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    expires_at   TEXT NOT NULL,           -- the absolute end, 8 hours after sign-in
+    ended_at     TEXT                     -- set on sign-out
+  );
+
   CREATE TABLE IF NOT EXISTS user_roles (
     user_id    TEXT NOT NULL REFERENCES users(id),
     role_id    TEXT NOT NULL REFERENCES roles(id),
@@ -392,6 +406,7 @@ export function openDatabase(path = ':memory:') {
   addWorkflowColumns(db);
   addAuditUserColumn(db);
   addUserVersionColumn(db);
+  addAssigneeColumn(db);
   seedRoles(db);
   return db;
 }
@@ -402,6 +417,12 @@ export function openDatabase(path = ':memory:') {
  * Completed — which is exactly how they behaved before. Not a user change, so version is not bumped.
  */
 /** Users made before user management (STORY-008) get a version, starting at 1. */
+/** Work orders made before the console (STORY-014) get an empty assignee: "Unassigned". */
+function addAssigneeColumn(db) {
+  const have = db.prepare('PRAGMA table_info(work_orders)').all().some((c) => c.name === 'assigned_to');
+  if (!have) db.exec('ALTER TABLE work_orders ADD COLUMN assigned_to TEXT');
+}
+
 function addUserVersionColumn(db) {
   const have = db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'version');
   if (!have) db.exec('ALTER TABLE users ADD COLUMN version INTEGER NOT NULL DEFAULT 1');

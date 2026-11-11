@@ -18,6 +18,8 @@
     "demo:readiness": "node --no-warnings server/readinessDemo.js",
     "vendor:check": "node --no-warnings server/vendorCheckCli.js",
     "demo:vendors": "node --no-warnings server/vendorDemo.js",
+    "console:check": "node --no-warnings server/consoleLayoutCheck.js",
+    "console": "node --no-warnings server/consoleServe.js",
     "demo:tickets": "node --no-warnings server/bluestakes/demo.js",
     "demo:public": "node --no-warnings server/public/demo.js",
     "public": "node --no-warnings server/public/serve.js"

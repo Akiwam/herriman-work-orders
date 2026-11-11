@@ -10,6 +10,7 @@ import { inTransaction } from '../db.js';
 import { writeAudit, ValidationError, ConflictError } from '../workOrders.js';
 import { userForKey, looksLikeUserKey, permissionsFor } from '../access.js';
 import { setActingUser } from '../requestContext.js';
+import { userForSession, looksLikeSessionToken } from '../consoleSessions.js';
 
 export const READ_SCOPE = 'work_orders:read';
 
@@ -109,8 +110,11 @@ function publicClient(row) {
  * Both are returned in the same shape ({ id, name, scopes }), so every endpoint checks access the same way.
  */
 export function authenticate(db, presentedKey) {
-  if (looksLikeUserKey(presentedKey)) {
-    const user = userForKey(db, presentedKey);
+  // A console session (STORY-014) stands in for the person's own key, with exactly their permissions.
+  const fromSession = looksLikeSessionToken(presentedKey) ? userForSession(db, presentedKey) : null;
+  if (looksLikeSessionToken(presentedKey) && !fromSession) return null;
+  if (fromSession || looksLikeUserKey(presentedKey)) {
+    const user = fromSession ?? userForKey(db, presentedKey);
     if (!user) return null;
     return { kind: 'user', id: user.id, user_id: user.id, name: user.email, email: user.email, scopes: [...permissionsFor(db, user.id)] };
   }

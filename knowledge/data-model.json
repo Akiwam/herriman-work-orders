@@ -603,6 +603,54 @@
       ]
     },
     {
+      "name": "console_session",
+      "purpose": "A person signed in to the staff console. Only a hash of the session token is stored; it ends when idle, after 8 hours, or on sign-out.",
+      "requirements": [
+        "REQ-047"
+      ],
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "token_hash",
+          "type": "text",
+          "note": "sha256; the token itself is never stored"
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "note": "→ app_user"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "last_seen_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "ended_at",
+          "type": "timestamptz",
+          "note": "set on sign-out"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "app_user",
+          "via": "user_id"
+        }
+      ]
+    },
+    {
       "name": "role",
       "purpose": "A named set of permissions (the same names API client scopes use). Built as the roles table: six placeholder built-in roles that cannot be edited, plus roles the city defines.",
       "requirements": [

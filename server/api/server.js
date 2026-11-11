@@ -13,6 +13,7 @@
 // System settings (STORY-008) — see settingsRoutes.js.
 // Operational readiness (STORY-010) — see readinessRoutes.js.
 // Vendor feeds for Madison AI, Lama and SpryPoint (STORY-009) — see vendorFeedRoutes.js.
+// The staff console's sign-in and screens (STORY-014) — see consoleRoutes.js.
 //
 // Locate tickets from the one-call centre (STORY-013) — needs scope locate_tickets:write:
 //   GET   /api/v1/locate-tickets/{id}            view a ticket
@@ -38,6 +39,7 @@ import { handleReadiness, READINESS_BASE } from './readinessRoutes.js';
 import { AssessmentNotSavedError } from '../readiness.js';
 import { handleVendorFeed, isVendorFeedPath } from './vendorFeedRoutes.js';
 import { ContractMismatchError } from '../vendors.js';
+import { handleConsoleApi, isConsoleApiPath, isConsolePagePath, serveConsolePage } from './consoleRoutes.js';
 import { AccessDeniedError } from '../access.js';
 import { writeAudit } from '../workOrders.js';
 import { currentUserId } from '../requestContext.js';
@@ -148,6 +150,10 @@ export function createApiServer(db, {
     const url = new URL(req.url, 'http://localhost');
     startRequestLog(db, req, res, url, { ip: clientIp(req, { trustProxy }), ...(now ? { now } : {}) });
     try {
+      if (isConsolePagePath(url.pathname)) {
+        serveConsolePage(req, res, url.pathname);
+        return;
+      }
       if (isPagePath(url.pathname)) {
         servePage(req, res, url.pathname);
         return;
@@ -167,6 +173,10 @@ export function createApiServer(db, {
       }
       if (url.pathname.startsWith(`${VENDOR_BASE}/`)) {
         await handleVendor(req, res, db, url, { key: bearerKey(req), now });
+        return;
+      }
+      if (isConsoleApiPath(url.pathname)) {
+        await handleConsoleApi(req, res, db, url, { key: bearerKey(req), now, gis });
         return;
       }
       if (isVendorFeedPath(url.pathname)) {

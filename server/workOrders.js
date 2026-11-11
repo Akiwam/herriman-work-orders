@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { inTransaction } from './db.js';
 import { workflowForWorkType, getWorkflow, checkStepRole } from './workflows.js';
 import { currentUserId } from './requestContext.js';
+import { hasPermission } from './access.js';
 
 export class NotFoundError extends Error {
   constructor(id) {
@@ -354,4 +355,43 @@ export async function completeWorkOrder(db, id, { note, actor, actorUserId = cur
   const linked = getAssets(db, id).length > 0;
   const gisFailures = linked && gis ? await syncPending(db, gis, id, { now }) : [];
   return { ...getWorkOrderDetail(db, id), gis_failures: gisFailures };
+}
+
+// ---------- assign (STORY-014) ----------
+
+/**
+ * Assign a work order to a person, or unassign it (assigneeUserId: null). The assignee must be an
+ * active user who is allowed to change work orders (work_orders:write), so work is never assigned to
+ * someone who could not act on it. Audited and versioned like every other change. Assigning it to the
+ * person it is already assigned to changes nothing (changed: false). A completed work order cannot be
+ * reassigned.
+ */
+export function assignWorkOrder(db, id, { assigneeUserId, actor, now = defaultNow, audit = writeAudit, expectedVersion } = {}) {
+  const problems = [];
+  if (isBlank(actor)) problems.push('actor is required');
+  if (assigneeUserId !== null && (typeof assigneeUserId !== 'string' || !assigneeUserId.trim())) problems.push('assignee_user_id must be a user id, or null to unassign');
+  if (problems.length) throw new ValidationError(problems);
+  checkVersionArgument(expectedVersion);
+
+  return inTransaction(db, () => {
+    const before = getWorkOrder(db, id);
+    if (!before) throw new NotFoundError(id);
+    if (before.status === 'completed') throw new ConflictError('A completed work order cannot be reassigned.');
+    assertVersion(before, expectedVersion);
+    if (assigneeUserId !== null) {
+      const user = db.prepare('SELECT id, is_active FROM users WHERE id = ?').get(assigneeUserId);
+      if (!user || user.is_active !== 1) throw new ValidationError([`no active user ${assigneeUserId}`]);
+      if (!hasPermission(db, user.id, 'work_orders:write')) throw new ValidationError(['the assignee must be someone allowed to work on work orders (work_orders:write)']);
+    }
+    if ((before.assigned_to ?? null) === assigneeUserId) return { workOrder: getWorkOrderDetail(db, id), changed: false };
+
+    const at = now();
+    db.prepare('UPDATE work_orders SET assigned_to = ?, updated_at = ?, version = version + 1 WHERE id = ?').run(assigneeUserId, at, id);
+    audit(db, {
+      entityType: 'work_order', entityId: id, action: 'assign', actor: actor.trim(),
+      before: { assigned_to: before.assigned_to ?? null, version: before.version },
+      after: { assigned_to: assigneeUserId, version: before.version + 1 }, at,
+    });
+    return { workOrder: getWorkOrderDetail(db, id), changed: true };
+  });
 }

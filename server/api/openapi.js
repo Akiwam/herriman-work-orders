@@ -257,6 +257,44 @@ export function openApiDocument() {
           responses: { ...writeOk(200, 'Moved'), ...changeErrors, 409: { description: 'Not a next step from where the work order is, the final step, or the work order is completed' } },
         },
       },
+      '/work-orders/{id}/assign': {
+        post: {
+          summary: 'Assign a work order to a person, or unassign it with null (needs work_orders:write)',
+          description: 'The assignee must be an active person allowed to work on work orders. Audited and versioned. Completed work orders cannot be reassigned.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, ifMatch],
+          requestBody: { required: true, content: { 'application/json': { schema: bodySchema(BODIES.assign) } } },
+          responses: { ...writeOk(200, 'Assigned, or already assigned to that person'), ...changeErrors, 409: { description: 'The work order is completed' } },
+        },
+      },
+      '/console/session': {
+        post: {
+          summary: 'Sign in to the staff console with a personal key; returns a session token (30 minutes idle, 8 hours at most)',
+          security: [],
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', additionalProperties: false, required: ['key'], properties: { key: { type: 'string', description: 'Your personal key (hwu_…). Used once; not stored by the console.' } } } } } },
+          responses: { 201: { description: 'Signed in: token, expires_at, user (Cache-Control: no-store)' }, 401: { description: 'Wrong, revoked or deactivated key (the attempt is audited)' } },
+        },
+        delete: { summary: 'Sign out of the console (send the session token)', responses: { 200: { description: 'ended: true, or false if it had already ended' } } },
+      },
+      '/console/me': { get: { summary: 'Who is signed in, and their permissions', responses: { 200: { description: 'OK' }, 401: { description: 'Not signed in' } } } },
+      '/console/work-orders': {
+        get: {
+          summary: 'The console list: each work order with status, assignee, location and workflow step, newest first (needs work_orders:read)',
+          parameters: [
+            { name: 'status', in: 'query', schema: { type: 'string', enum: ['open', 'completed'] } },
+            { name: 'assignee', in: 'query', schema: { type: 'string' }, description: 'A user id, or "unassigned"' },
+            limit, cursor,
+          ],
+          responses: { 200: { description: 'total, items and next_cursor; no work orders is an empty list, not an error' }, 400: { description: 'Unknown filter or bad value' }, 401: { description: 'Not signed in' } },
+        },
+      },
+      '/console/work-orders/{id}': {
+        get: {
+          summary: 'One work order with its full history and GIS record (live from GIS, or the saved copy if GIS is unavailable)',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'item, history, gis_status (live | unavailable | not_connected | no_assets) and gis_records; ETag is the version', headers: etagHeader }, 404: { description: 'No such work order' } },
+        },
+      },
+      '/console/users': { get: { summary: 'People work can be assigned to (active, with work_orders:write)', responses: { 200: { description: 'OK' } } } },
       '/work-orders/{id}/workflow': {
         get: {
           summary: 'Where a work order is in its workflow, and where it can go next',

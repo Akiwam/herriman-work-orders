@@ -4,6 +4,7 @@
 //   PATCH /api/v1/work-orders/{id}            update   — If-Match: "v<version>" required
 //   POST  /api/v1/work-orders/{id}/complete   complete — If-Match: "v<version>" required
 //   POST  /api/v1/work-orders/{id}/transition move to the next workflow step — If-Match required (STORY-006)
+//   POST  /api/v1/work-orders/{id}/assign     assign to a person, or null to unassign — If-Match required (STORY-014)
 //
 // Every body is checked against the published contract (unknown fields are refused). Every response
 // carries the work order in the published format (checked before it is sent) and an ETag with its
@@ -15,12 +16,12 @@ import { send, readJsonBody } from './http.js';
 import { requireAccess, actorFor, WORK_ORDERS_WRITE_SCOPE } from './clients.js';
 import { toPublic, validateResponse, SCHEMA_VERSION } from './workOrderFeed.js';
 import {
-  createWorkOrder, updateWorkOrder, completeWorkOrder, getWorkOrder, ValidationError, NotFoundError, VersionConflictError,
+  createWorkOrder, updateWorkOrder, completeWorkOrder, assignWorkOrder, getWorkOrder, ValidationError, NotFoundError, VersionConflictError,
 } from '../workOrders.js';
 import { transitionWorkOrder, workflowPosition } from '../workflows.js';
 
 const BASE = '/api/v1/work-orders';
-const ONE = new RegExp(`^${BASE}/([^/]+)(?:/(complete|transition))?$`);
+const ONE = new RegExp(`^${BASE}/([^/]+)(?:/(complete|transition|assign))?$`);
 
 // What each body may contain. A trailing ? means optional. Also the source of the OpenAPI request
 // bodies (openapi.js), so the published contract and the real checks are the same list.
@@ -29,6 +30,7 @@ export const BODIES = {
   update: { actor: 'string', title: 'string?', description: 'string?', work_type: 'string?', priority: 'string?', location_text: 'string?' },
   complete: { actor: 'string', note: 'string' },
   transition: { actor: 'string', to: 'string' },
+  assign: { actor: 'string', assignee_user_id: 'string?' },
 };
 
 /** The If-Match header was not sent, but this change needs it (HTTP 428). */
@@ -123,6 +125,11 @@ export async function handleWorkOrderWrite(req, res, db, pathname, { key, gis = 
   if (!getWorkOrder(db, id)) throw new NotFoundError(id);
   const expectedVersion = parseIfMatch(req.headers['if-match']);
   try {
+    if (action === 'assign') {
+      assignWorkOrder(db, id, { assigneeUserId: fields.assignee_user_id ?? null, actor, expectedVersion, ...opts });
+      sendWorkOrder(res, db, 200, id);
+      return;
+    }
     if (action === 'transition') {
       transitionWorkOrder(db, id, { to: fields.to, actor, expectedVersion, ...opts });
       sendWorkOrder(res, db, 200, id);

@@ -420,6 +420,34 @@
       "title": "No real vendor has connected yet",
       "body": "The feeds, contracts, log and test kit are built and tested against the system itself. Lama and SpryPoint have not confirmed the fields they need, no vendor has run the conformance check against a test system, and SCADA, named in REQ-042, is not built. What Lama and SpryPoint do with work order data is not known.",
       "evidence": "server/vendors.js (contract status proposed); tests/vendorFeedHttp.test.js"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "decision",
+      "title": "The staff console changes data only through the existing API",
+      "body": "Every edit, assignment, step move and completion in the console is a call to the work order API made with the signed-in person's session, so it lands in the same audit trail with their verified user id and the same version check. The console has no second way to change data; its own endpoints only sign people in and read what the screens show.",
+      "evidence": "server/console/app.js; server/api/consoleRoutes.js; tests/consoleSessions.test.js"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "decision",
+      "title": "Staff sign in with their personal key once and get a short session",
+      "body": "The personal key is sent once to sign in and never stored by the browser. The session token lives in that browser tab only, is stored on the server as a hash, and ends after 30 minutes idle, 8 hours in all, on sign-out, or at once when the person is deactivated.",
+      "evidence": "server/consoleSessions.js"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "decision",
+      "title": "Work orders have an assignee",
+      "body": "The console must show who each work order is assigned to, which the system did not record. A work order can now be assigned to an active person allowed to work on work orders, or left unassigned; each assignment is audited and versioned.",
+      "evidence": "server/workOrders.js (assignWorkOrder); server/db.js (work_orders.assigned_to)"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "limitation",
+      "title": "The console's keep-your-edit-and-retry after a session expires is not tested automatically",
+      "body": "The pieces underneath are tested (an ended session gets 401, a stale save gets 412), and every screen is checked at 1440x900 in a headless browser, but clicking through an expired session mid-edit has only been reviewed, not run by a test. Map, administration, AI intake and integrations screens are placeholders until their stories are built.",
+      "evidence": "server/console/app.js (signInAgain); tests/consolePages.test.js"
     }
   ]
 }
