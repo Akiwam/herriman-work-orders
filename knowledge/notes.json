@@ -448,6 +448,34 @@
       "title": "The console's keep-your-edit-and-retry after a session expires is not tested automatically",
       "body": "The pieces underneath are tested (an ended session gets 401, a stale save gets 412), and every screen is checked at 1440x900 in a headless browser, but clicking through an expired session mid-edit has only been reviewed, not run by a test. Map, administration, AI intake and integrations screens are placeholders until their stories are built.",
       "evidence": "server/console/app.js (signInAgain); tests/consolePages.test.js"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "decision",
+      "title": "Citizen requests and Blue Stakes tickets arrive as drafts; a named person decides",
+      "body": "The intake agent drafts a work order from each citizen request and Blue Stakes ticket. No work order exists until a person with intake:approve (Supervisor or System administrator) approves it, with their own key or console session; outside systems cannot approve. Citizens see 'Received, waiting for review' until then, and 'Reviewed: not taken forward' if it is rejected, without the internal reason.",
+      "evidence": "server/intake.js; server/publicRequests.js; tests/intakeReview.test.js"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "decision",
+      "title": "The agent's proposal is never changed; the reviewer's version is what becomes the work order",
+      "body": "Corrections are stored separately from the proposal, and the audit trail records which fields the approver changed. Fields the agent cannot work out are left empty with a reason and block approval until a person fills them in.",
+      "evidence": "server/intake.js (correctDraft, approveDraft, reviewerVersion)"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "decision",
+      "title": "One approval, one work order, from the source as it was drafted",
+      "body": "A reviewer claims a draft before its work order is made, so two reviewers acting at once produce one work order and the second is told who approved it; the work order's request id comes from the draft, so a retry never duplicates it. Approval is refused if the source record changed after drafting; the draft can be re-drafted and the old one is kept as superseded.",
+      "evidence": "server/intake.js (decidable, approveDraft); tests/intakeReview.test.js"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "limitation",
+      "title": "The intake agent is a rule-based stand-in until an AI model is provided",
+      "body": "Drafting uses keyword rules over a placeholder list of work types, and every draft and audit entry says so. A model can be plugged in behind the same interface (its output is checked; the stand-in takes over if it fails), but no model or key has been provided. Work orders created directly through the work order API by staff or authorised systems do not pass through intake; their named caller is the creator.",
+      "evidence": "server/intake.js (STANDIN_AGENT, WORK_TYPES, draftWith)"
     }
   ]
 }

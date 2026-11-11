@@ -87,3 +87,19 @@ ol.history .when { font-size: .8rem; color: var(--muted); }
 .wide { width: 100%; }
 .inline-label { margin: 0; }
 .pager { margin-top: 12px; }
+
+/* AI intake (STORY-015) */
+.tab { padding: 6px 12px; border-radius: 8px; text-decoration: none; color: var(--ink); border: 1px solid var(--line); background: var(--panel); }
+.tab.active { background: var(--accent-soft); color: var(--accent); border-color: transparent; font-weight: 600; }
+.pill.attention { background: var(--warn-soft); color: var(--warn); }
+.q-source { width: 16%; } .q-draft { width: 30%; } .q-needs { width: 14%; } .q-who { width: 15%; } .q-when { width: 10%; }
+table.queue td { white-space: normal; }
+table.compare { border: 0; }
+table.compare tbody tr { cursor: default; }
+table.compare tbody tr:hover { background: transparent; }
+table.compare th[scope="row"] { text-transform: none; letter-spacing: 0; font-size: .9rem; color: var(--ink); background: transparent; }
+table.compare td, table.compare th { white-space: normal; vertical-align: top; }
+table.compare .c-field { width: 18%; } table.compare .c-proposed { width: 37%; } table.compare .c-mine { width: 45%; }
+table.compare tr.undetermined { background: var(--warn-soft); }
+table.compare tr.undetermined:hover { background: var(--warn-soft); }
+.field-reason { font-size: .8rem; color: var(--warn); }

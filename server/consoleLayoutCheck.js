@@ -21,6 +21,9 @@ import { createWorkOrder, updateWorkOrder, assignWorkOrder } from './workOrders.
 import { createGisClient, createGisLogger, createStandInGis, loadStandInAssets } from './gis.js';
 import { createApiServer } from './api/server.js';
 import { startSession } from './consoleSessions.js';
+import { submitPublicRequest } from './publicRequests.js';
+import { loadStandInTickets } from './locateTickets.js';
+import { receiveLocateTicket, approveDraft, listDrafts } from './intake.js';
 
 const run = promisify(execFile);
 export const EDGE = process.env.EDGE_PATH ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
@@ -50,12 +53,25 @@ export async function exampleSystem({ workOrders = 60 } = {}) {
       await updateWorkOrder(db, wo.id, { priority: 'high', description: 'Reported by a resident; the pole is leaning slightly.' }, { actor: 'jane.admin@herriman.example' });
     }
   }
-  return { db, gis, key, samKey, detailId };
+  // AI intake (STORY-015): citizen requests and Blue Stakes tickets arrive as drafts; one is approved.
+  const asks = [
+    ['Large pothole in the right-hand lane, cars are swerving around it', 'pothole', '13400 S Rosecrest Rd (stand-in)'],
+    ['Something strange near the park fence, please take a look', 'citizen_request', 'Stand-in park, north entrance'],
+    ['Water bubbling up through the sidewalk outside the library, flooding the path', 'water_leak', '55 Sample Ave (stand-in)'],
+  ];
+  for (const [i, [description, category, location_text]] of asks.entries()) {
+    await submitPublicRequest(db, { description, category, location_text, submission_id: `example-intake-${i + 1}` }, { ip: '192.0.2.10' });
+  }
+  for (const t of loadStandInTickets().slice(0, 2)) await receiveLocateTicket(db, t);
+  const drafts = listDrafts(db);
+  const undeterminedDraftId = drafts.find((d) => d.undetermined.length)?.id;
+  const { workOrder: approved } = await approveDraft(db, drafts.find((d) => d.proposed.work_type === 'pothole').id, { actorUserId: admin.id, changes: { priority: 'high' } });
+  return { db, gis, key, samKey, detailId, undeterminedDraftId, approvedWorkOrderId: approved.id };
 }
 
 /** Open every screen at 1440x900 and report whether each fits. */
 export async function runLayoutCheck({ screenshots = null } = {}) {
-  const { db, gis, key, detailId } = await exampleSystem();
+  const { db, gis, key, detailId, undeterminedDraftId, approvedWorkOrderId } = await exampleSystem();
   const server = createApiServer(db, { gis });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}/console`;
@@ -65,11 +81,13 @@ export async function runLayoutCheck({ screenshots = null } = {}) {
   // fallback such as the sign-in page, which would also "fit".
   const screens = [
     ['sign-in', '', /Personal key/],
-    ['work order list', `#/work-orders?session=${token}`, /60 work orders/],
+    ['work order list', `#/work-orders?session=${token}`, /61 work orders/],
     ['work order list, page 2', null, /Next page/], // address filled in below with a real cursor
     ['work order detail', `#/work-orders/${detailId}?session=${token}`, /GIS record[\s\S]*History/],
     ['empty list (filtered)', `#/work-orders?status=completed&session=${token}`, /No work orders match these filters/],
-    ['AI intake (placeholder)', `#/intake?session=${token}`, /STORY-015 · coming next<\/p>/],
+    ['AI intake queue', `#/intake?session=${token}`, /Must approve[\s\S]*Work type needed/],
+    ['AI intake draft (field to fill in)', `#/intake/${undeterminedDraftId}?session=${token}`, /Agent proposed[\s\S]*not determined[\s\S]*Approve and create the work order/],
+    ['work order approved from AI intake', `#/work-orders/${approvedWorkOrderId}?session=${token}`, /From AI intake[\s\S]*Approved by/],
     ['map (placeholder)', `#/map?session=${token}`, /STORY-016 · coming next<\/p>/],
     ['administration (placeholder)', `#/admin?session=${token}`, /STORY-017 · coming next<\/p>/],
     ['integrations & readiness (placeholder)', `#/integrations?session=${token}`, /STORY-018 · coming next<\/p>/],

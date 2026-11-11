@@ -51,5 +51,5 @@ test('the console knows who is signed in, and only from a valid session', async 
 test('every console screen renders at 1440x900 with no horizontal scrollbar', { skip: !edgeAvailable() && 'Edge is not installed here', timeout: 600000 }, async () => {
   const results = await runLayoutCheck();
   for (const r of results) assert.ok(r.fits, `${r.screen}: ${r.result}`);
-  assert.equal(results.length, 9);
+  assert.equal(results.length, 11);
 });

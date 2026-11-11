@@ -89,8 +89,23 @@ function describe(db, entry) {
     case 'complete': return `Completed: ${after?.completion_note ?? ''}`.trim();
     case 'gis_update': return 'Location details updated from GIS';
     case 'publish': return after?.is_public ? 'Published on the public site' : 'Removed from the public site';
+    case 'intake_approve': return `Approved from AI intake by ${after?.approved_by ?? entry.actor}${after?.changed_from_proposal?.length ? ` (changed: ${after.changed_from_proposal.join(', ')})` : ' (as drafted)'}`;
     default: return entry.action.replace(/_/g, ' ');
   }
+}
+
+/** If the work order came through AI intake (STORY-015): who drafted it and the person who approved it. */
+function intakeOrigin(db, workOrderId) {
+  const d = db.prepare("SELECT * FROM intake_drafts WHERE work_order_id = ? AND status = 'approved'").get(workOrderId);
+  if (!d) return null;
+  const approver = nameOf(db, d.reviewed_by);
+  const proposed = JSON.parse(d.proposed_json);
+  const final = JSON.parse(d.final_json);
+  return {
+    draft_id: d.id, source_type: d.source_type, drafted_by: d.drafted_by, drafted_at: d.drafted_at,
+    approved_by: approver ? { id: approver.id, name: approver.display_name } : null, approved_at: d.reviewed_at,
+    changed_from_proposal: Object.keys(final).filter((f) => (proposed[f] ?? null) !== (final[f] ?? null)),
+  };
 }
 
 /** A work order's full detail from the database: the record, its assignee, workflow step and full history. */
@@ -111,6 +126,7 @@ export function consoleWorkOrderDetail(db, id) {
     },
     history,
     saved_assets: getAssets(db, row.id).map((a) => ({ id: a.asset_id, asset_type: a.asset_type, name: a.asset_name, attributes: a.attributes })),
+    intake: intakeOrigin(db, row.id),
   };
 }
 

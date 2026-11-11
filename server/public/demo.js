@@ -6,6 +6,8 @@ import { openDatabase } from '../db.js';
 import { getWorkOrder, completeWorkOrder } from '../workOrders.js';
 import { createApiServer } from '../api/server.js';
 import { publishWorkOrder } from '../publicRequests.js';
+import { bootstrapAdministrator } from '../access.js';
+import { approveDraft, listDrafts } from '../intake.js';
 
 const db = openDatabase(':memory:');
 const server = createApiServer(db);
@@ -39,10 +41,16 @@ console.log(`  ${sent.status}  tracking code ${sent.body.tracking_code}  status=
 const again = await call('POST', '/requests', report);
 console.log(`  Double-click sends it again: ${again.status}  duplicate=${again.body.duplicate}, same code=${again.body.tracking_code === sent.body.tracking_code}`);
 
-step(2, 'It appears in the work order system (AC1)');
+step(2, 'The intake agent drafts it; a supervisor approves it into the work order system (AC1, STORY-015)');
 const req = db.prepare('SELECT * FROM service_requests WHERE tracking_code = ?').get(sent.body.tracking_code);
-const wo = getWorkOrder(db, req.work_order_id);
-console.log(`  work order ${wo.id.slice(0, 8)}…  "${wo.title}"  type=${wo.work_type}  status=${wo.status}  by ${wo.created_by}  public=${wo.is_public === 1}`);
+const waiting = await call('GET', `/requests/${sent.body.tracking_code}`);
+console.log(`  Before review the citizen sees: ${waiting.body.item.status}`);
+const draft = listDrafts(db).find((d) => d.source_id === req.id);
+console.log(`  Draft by ${draft.drafted_by}: type=${draft.proposed.work_type}, priority=${draft.proposed.priority}`);
+const supervisor = bootstrapAdministrator(db, { email: 'supervisor.demo@herriman.example', display_name: 'Supervisor Demo' });
+const { workOrder } = await approveDraft(db, draft.id, { actorUserId: supervisor.id });
+const wo = getWorkOrder(db, workOrder.id);
+console.log(`  work order ${wo.id.slice(0, 8)}…  "${wo.title}"  type=${wo.work_type}  status=${wo.status}  approved by ${wo.created_by}  public=${wo.is_public === 1}`);
 
 step(3, 'The citizen checks their request by tracking code');
 const tracked = await call('GET', `/requests/${sent.body.tracking_code}`);

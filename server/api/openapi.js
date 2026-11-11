@@ -266,6 +266,45 @@ export function openApiDocument() {
           responses: { ...writeOk(200, 'Assigned, or already assigned to that person'), ...changeErrors, 409: { description: 'The work order is completed' } },
         },
       },
+      '/intake/drafts': {
+        get: {
+          summary: 'The AI intake queue: drafted work orders from citizen requests and Blue Stakes tickets (needs work_orders:read)',
+          description: 'Each item states who performs the work (performer_label) and who must approve it (approver_label, who_can_approve), and which required fields are still missing. Contact details are never included.',
+          parameters: [{ name: 'status', in: 'query', schema: { type: 'string', enum: ['proposed', 'approved', 'rejected', 'superseded'], default: 'proposed' } }],
+          responses: { 200: { description: 'OK' }, 401: { description: 'Not signed in' } },
+        },
+      },
+      '/intake/drafts/{id}': {
+        get: {
+          summary: 'One draft: the agent\'s proposal (never changed), the reviewer\'s version, undetermined fields with reasons, and the source',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'OK; ETag is the draft version', headers: etagHeader }, 404: { description: 'No such draft' } },
+        },
+      },
+      ...Object.fromEntries([
+        ['approve', 'Approve: the work order is created from the reviewer\'s version and names the approver', { changes: { type: 'object', description: 'Optional corrections to the draft fields' } }],
+        ['correct', 'Save a correction without deciding yet; the agent\'s proposal is kept', { changes: { type: 'object' } }],
+        ['reject', 'Reject, with the reason (kept internally); no work order is created', { reason: { type: 'string', minLength: 3, maxLength: 1000 } }],
+      ].map(([action, summary, properties]) => [`/intake/drafts/{id}/${action}`, {
+        post: {
+          summary: `${summary} (intake:approve, a person's own key or session)`,
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, ifMatch],
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', additionalProperties: false, properties } } } },
+          responses: {
+            200: { description: 'Done' }, 201: { description: 'Approved: work_order_id of the new work order' },
+            400: { description: 'A required field is still empty, or a bad value' }, 403: { description: 'Needs intake:approve, by a person' },
+            409: { description: 'already_decided (says by whom), superseded, or source_changed (re-draft it)' },
+            412: { description: 'The draft changed since you opened it; the body has the current draft' }, 428: { description: 'If-Match was not sent' },
+          },
+        },
+      }])),
+      '/intake/drafts/{id}/redraft': {
+        post: {
+          summary: 'The agent drafts again from the source as it is now; the earlier draft is kept as superseded (intake:approve, a person)',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 201: { description: 'A new draft' }, 200: { description: 'The source has not changed: the current draft' } },
+        },
+      },
       '/console/session': {
         post: {
           summary: 'Sign in to the staff console with a personal key; returns a session token (30 minutes idle, 8 hours at most)',

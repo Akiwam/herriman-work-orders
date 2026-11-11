@@ -6,8 +6,12 @@ import { openDatabase } from '../db.js';
 import { completeWorkOrder } from '../workOrders.js';
 import { createApiServer } from '../api/server.js';
 import { submitPublicRequest, publishWorkOrder } from '../publicRequests.js';
+import { bootstrapAdministrator } from '../access.js';
+import { approveDraft, listDrafts } from '../intake.js';
 
 const db = openDatabase(':memory:');
+// Since STORY-015 a request becomes a work order when a person approves its draft; a sample reviewer does that here.
+const reviewer = bootstrapAdministrator(db, { email: 'sample.reviewer@herriman.example', display_name: 'Sample Reviewer' });
 const samples = [
   ['Streetlight out by the bus stop for a week', 'Stand-in address: 140 Example Way', 'streetlight', false],
   ['Pothole about a foot wide in the right-hand lane', 'Stand-in address: Demo Blvd, east side', 'pothole', true],
@@ -15,7 +19,10 @@ const samples = [
 ];
 for (const [i, [description, location_text, category, completed]] of samples.entries()) {
   const r = await submitPublicRequest(db, { description, location_text, category, submission_id: `sample-${i + 1}-seed` }, { ip: '192.0.2.1' });
-  const woId = db.prepare('SELECT work_order_id FROM service_requests WHERE tracking_code = ?').get(r.tracking_code).work_order_id;
+  const { id: requestId } = db.prepare('SELECT id FROM service_requests WHERE tracking_code = ?').get(r.tracking_code);
+  const draft = listDrafts(db).find((d) => d.source_id === requestId);
+  const { workOrder } = await approveDraft(db, draft.id, { actorUserId: reviewer.id });
+  const woId = workOrder.id;
   publishWorkOrder(db, woId, { actor: 'sample.staff' });
   if (completed) await completeWorkOrder(db, woId, { note: 'Patched', actor: 'sample.crew' });
 }

@@ -40,7 +40,7 @@ const SCHEMA = `
     latitude      REAL,
     longitude     REAL,
     contact       TEXT,                       -- optional; never shown publicly or sent to outside systems
-    work_order_id TEXT NOT NULL REFERENCES work_orders(id),
+    work_order_id TEXT REFERENCES work_orders(id), -- set when a person approves its intake draft (STORY-015); empty until then
     submitted_at  TEXT NOT NULL
   );
 
@@ -293,6 +293,30 @@ const SCHEMA = `
     ended_at     TEXT                     -- set on sign-out
   );
 
+  -- AI-first intake (STORY-015): the agent drafts a work order from a citizen request or a Blue Stakes
+  -- ticket; a named person approves, corrects or rejects it. proposed_json is the agent's proposal and
+  -- is never changed; final_json is the reviewer's version, which is what becomes the work order.
+  CREATE TABLE IF NOT EXISTS intake_drafts (
+    id                 TEXT PRIMARY KEY,
+    source_type        TEXT NOT NULL,          -- citizen_request | locate_ticket
+    source_id          TEXT NOT NULL,
+    source_fingerprint TEXT NOT NULL,          -- sha256 of the source as drafted; approval checks it has not changed
+    status             TEXT NOT NULL,          -- proposed | approved | rejected | superseded
+    version            INTEGER NOT NULL,       -- +1 on every change; two reviewers cannot both act on one version
+    proposed_json      TEXT NOT NULL,          -- the agent's fields, as proposed
+    undetermined_json  TEXT NOT NULL,          -- fields the agent could not work out, with reasons
+    drafted_by         TEXT NOT NULL,          -- which agent, e.g. the rule-based stand-in
+    drafted_at         TEXT NOT NULL,
+    performer          TEXT NOT NULL,          -- who performs the work (a role, e.g. field_crew)
+    approver           TEXT NOT NULL,          -- who must approve it (a role, e.g. supervisor)
+    final_json         TEXT,                   -- the reviewer's version (approved), or null
+    reviewed_by        TEXT,                   -- user id of the person who approved or rejected
+    reviewed_at        TEXT,
+    review_note        TEXT,                   -- why it was rejected
+    work_order_id      TEXT REFERENCES work_orders(id)
+  );
+  CREATE INDEX IF NOT EXISTS intake_drafts_source ON intake_drafts (source_type, source_id);
+
   CREATE TABLE IF NOT EXISTS user_roles (
     user_id    TEXT NOT NULL REFERENCES users(id),
     role_id    TEXT NOT NULL REFERENCES roles(id),
@@ -407,6 +431,7 @@ export function openDatabase(path = ':memory:') {
   addAuditUserColumn(db);
   addUserVersionColumn(db);
   addAssigneeColumn(db);
+  makeRequestWorkOrderOptional(db);
   seedRoles(db);
   return db;
 }
@@ -417,6 +442,35 @@ export function openDatabase(path = ':memory:') {
  * Completed — which is exactly how they behaved before. Not a user change, so version is not bumped.
  */
 /** Users made before user management (STORY-008) get a version, starting at 1. */
+/**
+ * Before AI-first intake (STORY-015) every citizen request created a work order at once, so the link
+ * was required. Now a request waits for a person to approve its draft, so the link starts empty.
+ * SQLite cannot relax NOT NULL in place, so an older database's table is rebuilt once, in a single
+ * transaction, keeping every row exactly as it was.
+ */
+function makeRequestWorkOrderOptional(db) {
+  const column = db.prepare('PRAGMA table_info(service_requests)').all().find((c) => c.name === 'work_order_id');
+  if (!column || column.notnull === 0) return;
+  const columns = 'id, tracking_code, submission_id, description, category, location_text, latitude, longitude, contact, work_order_id, submitted_at';
+  db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    db.exec(`BEGIN;
+      CREATE TABLE service_requests_rebuilt (
+        id TEXT PRIMARY KEY, tracking_code TEXT NOT NULL UNIQUE, submission_id TEXT NOT NULL UNIQUE, description TEXT NOT NULL,
+        category TEXT NOT NULL, location_text TEXT NOT NULL, latitude REAL, longitude REAL, contact TEXT,
+        work_order_id TEXT REFERENCES work_orders(id), submitted_at TEXT NOT NULL);
+      INSERT INTO service_requests_rebuilt (${columns}) SELECT ${columns} FROM service_requests;
+      DROP TABLE service_requests;
+      ALTER TABLE service_requests_rebuilt RENAME TO service_requests;
+      COMMIT;`);
+  } catch (err) {
+    db.exec('ROLLBACK;');
+    throw err;
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
 /** Work orders made before the console (STORY-014) get an empty assignee: "Unassigned". */
 function addAssigneeColumn(db) {
   const have = db.prepare('PRAGMA table_info(work_orders)').all().some((c) => c.name === 'assigned_to');
@@ -442,9 +496,9 @@ function addAuditUserColumn(db) {
 // it belongs to outside vendors only.
 export const BUILTIN_ROLES = [
   ['system_admin', 'System administrator', 'Everything, including who has access and the audit trail.',
-    ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write', 'vendor:review', 'access:admin', 'audit:read', 'settings:admin', 'readiness:review']],
+    ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write', 'vendor:review', 'access:admin', 'audit:read', 'settings:admin', 'readiness:review', 'intake:approve']],
   ['supervisor', 'Supervisor', 'Runs the work: work orders, workflows, locate tickets and heat maps.',
-    ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write']],
+    ['work_orders:read', 'work_orders:write', 'workflows:admin', 'heatmaps:read', 'locate_tickets:write', 'intake:approve']],
   ['field_crew', 'Field crew', 'Reads work orders and moves them along; answers locate tickets.',
     ['work_orders:read', 'work_orders:write', 'locate_tickets:write']],
   ['clerk', 'Clerk', 'Creates and updates work orders.', ['work_orders:read', 'work_orders:write']],

@@ -9,6 +9,7 @@ import { submitPublicRequest } from '../server/publicRequests.js';
 import {
   analyzeWorkOrders, cellDegrees, normaliseParams, CELL_SIZE, generateHeatMap, shadeIndex, HEAT_COLOURS, MapGenerationError, MAX_CELLS,
 } from '../server/heatMaps.js';
+import { approveRequest } from './helpers/intake.js';
 
 const heatLog = (db) => db.prepare('SELECT * FROM heat_map_log ORDER BY id').all();
 
@@ -66,6 +67,9 @@ test('a citizen\'s map pin is used when the work order itself has no coordinates
     description: 'Pothole in the right-hand lane', location_text: 'Stand-in Example Way', category: 'pothole',
     latitude: HOTSPOT[0][0], longitude: HOTSPOT[0][1], submission_id: 'heat-pin-0001',
   }, { ip: '203.0.113.7' });
+  assert.equal(analyzeWorkOrders(db).total_matching, 0, 'a draft waiting for review is not a work order yet (STORY-015)');
+  const { tracking_code: code } = db.prepare('SELECT tracking_code FROM service_requests').get();
+  await approveRequest(db, code);
   const map = analyzeWorkOrders(db);
   assert.equal(map.mapped, 1);
   assert.equal(map.unmapped, 0);

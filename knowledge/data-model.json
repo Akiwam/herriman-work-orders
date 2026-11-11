@@ -314,7 +314,7 @@
         {
           "name": "work_order_id",
           "type": "uuid",
-          "note": "→ work_order"
+          "note": "→ work_order; empty until a person approves its intake draft"
         },
         {
           "name": "submitted_at",
@@ -324,6 +324,105 @@
       "relationships": [
         {
           "type": "becomes",
+          "to": "work_order",
+          "via": "work_order_id"
+        }
+      ]
+    },
+    {
+      "name": "intake_draft",
+      "purpose": "A work order drafted by the intake agent from a citizen request or a Blue Stakes ticket, waiting for a named person to approve, correct or reject it.",
+      "requirements": [
+        "REQ-037",
+        "REQ-039"
+      ],
+      "fields": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "note": "primary key"
+        },
+        {
+          "name": "source_type",
+          "type": "text",
+          "note": "citizen_request | locate_ticket"
+        },
+        {
+          "name": "source_id",
+          "type": "uuid"
+        },
+        {
+          "name": "source_fingerprint",
+          "type": "text",
+          "note": "approval is refused if the source changed"
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "note": "proposed | approved | rejected | superseded"
+        },
+        {
+          "name": "version",
+          "type": "integer"
+        },
+        {
+          "name": "proposed",
+          "type": "jsonb",
+          "note": "the agent's fields; never changed"
+        },
+        {
+          "name": "undetermined",
+          "type": "jsonb",
+          "note": "fields the agent could not work out, with reasons"
+        },
+        {
+          "name": "final",
+          "type": "jsonb",
+          "note": "the reviewer's version"
+        },
+        {
+          "name": "drafted_by",
+          "type": "text",
+          "note": "which agent"
+        },
+        {
+          "name": "performer",
+          "type": "text",
+          "note": "→ role that performs the work"
+        },
+        {
+          "name": "approver",
+          "type": "text",
+          "note": "→ role that must approve"
+        },
+        {
+          "name": "reviewed_by",
+          "type": "uuid",
+          "note": "→ app_user who decided"
+        },
+        {
+          "name": "reviewed_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "review_note",
+          "type": "text",
+          "note": "why it was rejected"
+        },
+        {
+          "name": "work_order_id",
+          "type": "uuid",
+          "note": "→ work_order, once approved"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "app_user",
+          "via": "reviewed_by"
+        },
+        {
+          "type": "has one",
           "to": "work_order",
           "via": "work_order_id"
         }

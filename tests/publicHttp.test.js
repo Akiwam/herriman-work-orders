@@ -7,6 +7,8 @@ import { openDatabase } from '../server/db.js';
 import { getWorkOrder, completeWorkOrder } from '../server/workOrders.js';
 import { createApiServer } from '../server/api/server.js';
 import { publishWorkOrder } from '../server/publicRequests.js';
+import { listDrafts } from '../server/intake.js';
+import { approveRequest } from './helpers/intake.js'; // STORY-015: a request becomes a work order once a person approves it
 
 async function start(options = {}) {
   const db = openDatabase();
@@ -44,7 +46,8 @@ test('AC1 + AC3 over HTTP: a citizen submits, the work order system has it, and 
   assert.match(res.body.tracking_code, /^HWO-/);
 
   const req = db.prepare('SELECT * FROM service_requests WHERE tracking_code = ?').get(res.body.tracking_code);
-  assert.equal(getWorkOrder(db, req.work_order_id).work_type, 'pothole', 'it appears in the work order system');
+  assert.equal(listDrafts(db)[0].source_id, req.id, 'the intake agent drafted it at once');
+  assert.equal(getWorkOrder(db, await approveRequest(db, res.body.tracking_code)).work_type, 'pothole', 'it appears in the work order system once approved');
   const [entry] = submissions(db);
   assert.equal(entry.outcome, 'accepted');
   assert.equal(entry.ip_address, '127.0.0.1', 'the IP comes from the connection');
@@ -57,9 +60,10 @@ test('AC2 over HTTP: the citizen follows their request, and a published work ord
 
   const tracked = await call('GET', `/requests/${receipt.tracking_code}`);
   assert.equal(tracked.status, 200);
-  assert.equal(tracked.body.item.status, 'Open');
+  assert.equal(tracked.body.item.status, 'Received, waiting for review');
 
-  const woId = db.prepare('SELECT work_order_id FROM service_requests WHERE tracking_code = ?').get(receipt.tracking_code).work_order_id;
+  const woId = await approveRequest(db, receipt.tracking_code);
+  assert.equal((await call('GET', `/requests/${receipt.tracking_code}`)).body.item.status, 'Open');
   assert.equal((await call('GET', `/work-orders/${woId}`)).status, 404, 'not visible to everyone until published');
 
   publishWorkOrder(db, woId, { actor: 'supervisor.jones' });
@@ -67,7 +71,7 @@ test('AC2 over HTTP: the citizen follows their request, and a published work ord
   const view = await call('GET', `/work-orders/${woId}`);
   assert.equal(view.status, 200);
   assert.equal(view.body.item.status, 'Completed');
-  assert.deepEqual(view.body.item.history.map((h) => h.event), ['Request received', 'Work completed']);
+  assert.deepEqual(view.body.item.history.map((h) => h.event), ['Request received', 'Reviewed and accepted as a work order', 'Work completed']);
 
   const list = await call('GET', '/work-orders');
   assert.deepEqual(list.body.items.map((i) => i.id), [woId]);
@@ -94,7 +98,7 @@ test('unauthorized access: unknown or unpublished items get the same 404, and no
   const { db, call, stop } = await start();
   t.after(stop);
   const { body: receipt } = await call('POST', '/requests', { body: request() });
-  const woId = db.prepare('SELECT work_order_id FROM service_requests WHERE tracking_code = ?').get(receipt.tracking_code).work_order_id;
+  const woId = await approveRequest(db, receipt.tracking_code);
 
   const hidden = await call('GET', `/work-orders/${woId}`);
   const missing = await call('GET', '/work-orders/no-such-id');
@@ -128,7 +132,8 @@ test('spam protection: after 5 accepted requests in an hour, one address gets 42
   assert.equal(sixth.status, 429);
   assert.equal(sixth.headers.get('retry-after'), '3600');
   assert.equal(sixth.body.error, 'too_many_requests');
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM work_orders').get().n, 5, 'no sixth work order');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM service_requests').get().n, 5, 'no sixth request');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM intake_drafts').get().n, 5, 'and no sixth draft');
   assert.equal(submissions(db).at(-1).outcome, 'rate_limited');
 });
 

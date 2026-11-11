@@ -14,6 +14,7 @@
 // Operational readiness (STORY-010) — see readinessRoutes.js.
 // Vendor feeds for Madison AI, Lama and SpryPoint (STORY-009) — see vendorFeedRoutes.js.
 // The staff console's sign-in and screens (STORY-014) — see consoleRoutes.js.
+// AI-first intake: drafts, approval queue and decisions (STORY-015) — see intakeRoutes.js.
 //
 // Locate tickets from the one-call centre (STORY-013) — needs scope locate_tickets:write:
 //   GET   /api/v1/locate-tickets/{id}            view a ticket
@@ -40,6 +41,7 @@ import { AssessmentNotSavedError } from '../readiness.js';
 import { handleVendorFeed, isVendorFeedPath } from './vendorFeedRoutes.js';
 import { ContractMismatchError } from '../vendors.js';
 import { handleConsoleApi, isConsoleApiPath, isConsolePagePath, serveConsolePage } from './consoleRoutes.js';
+import { handleIntake, isIntakePath } from './intakeRoutes.js';
 import { AccessDeniedError } from '../access.js';
 import { writeAudit } from '../workOrders.js';
 import { currentUserId } from '../requestContext.js';
@@ -173,6 +175,10 @@ export function createApiServer(db, {
       }
       if (url.pathname.startsWith(`${VENDOR_BASE}/`)) {
         await handleVendor(req, res, db, url, { key: bearerKey(req), now });
+        return;
+      }
+      if (isIntakePath(url.pathname)) {
+        await handleIntake(req, res, db, url, { key: bearerKey(req), now });
         return;
       }
       if (isConsoleApiPath(url.pathname)) {

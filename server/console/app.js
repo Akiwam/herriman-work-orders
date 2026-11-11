@@ -13,8 +13,7 @@
   const app = document.getElementById('app');
   const NAV = [
     { route: 'work-orders', label: 'Work orders' },
-    { route: 'intake', label: 'AI intake', story: 'STORY-015', soon: 'The agent drafts a work order from a request; a person approves it.',
-      basis: 'The drafting agent is new work. Approved drafts will become work orders through the work order API that already exists.' },
+    { route: 'intake', label: 'AI intake' },
     { route: 'map', label: 'Map', story: 'STORY-016', soon: 'Work order activity on a map, with heat maps by type and area.',
       basis: 'The heat maps it will show already exist in the system\'s API.' },
     { route: 'admin', label: 'Administration', story: 'STORY-017', soon: 'Users, roles, settings and workflows in one place.',
@@ -198,7 +197,7 @@
     mount('work-orders', '<p class="muted">Loading…</p>');
     const [res, users] = await Promise.all([api('GET', `/console/work-orders/${encodeURIComponent(id)}`), api('GET', '/console/users')]);
     if (res.status !== 200) return mount('work-orders', `<p><a href="#/work-orders">← Work orders</a></p><p class="banner bad">${esc(res.body?.message ?? 'Not found.')}</p>`);
-    const { item: wo, history, gis_status: gisStatus, gis_records: gisRecords } = res.body;
+    const { item: wo, history, gis_status: gisStatus, gis_records: gisRecords, intake } = res.body;
     let etag = res.etag;
     const done = wo.status === 'completed';
 
@@ -246,6 +245,11 @@
           <section class="card"><h2>Change</h2>${editing}</section>
         </div>
         <div class="stack">
+          ${intake ? `<section class="card"><h2>From AI intake</h2><dl class="facts">
+            <dt>Drafted by</dt><dd>${esc(intake.drafted_by)}</dd>
+            <dt>Approved by</dt><dd><strong>${esc(intake.approved_by?.name ?? '—')}</strong> on ${esc(when(intake.approved_at))}</dd>
+            <dt>Changed by the approver</dt><dd>${intake.changed_from_proposal.length ? esc(intake.changed_from_proposal.join(', ')) : 'nothing: approved as drafted'}</dd>
+          </dl><p><a href="#/intake/${esc(intake.draft_id)}">See the draft and the agent's proposal</a></p></section>` : ''}
           <section class="card"><h2>GIS record</h2>${gisBanner}${gisPanel}</section>
           <section class="card"><h2>History</h2><ol class="history">${history.map((h) => `<li>${esc(h.what)}<br><span class="when">${esc(when(h.at))} · ${esc(h.by)}</span></li>`).join('')}</ol></section>
         </div>
@@ -286,6 +290,143 @@
     document.getElementById('complete')?.addEventListener('click', () => change('POST', `${base}/complete`, { note: document.getElementById('e-note').value }, 'Work order completed.'));
   }
 
+
+  // ---------- AI intake (STORY-015): the agent drafts, a person approves ----------
+  const FIELD_LABELS = { title: 'Title', work_type: 'Work type', priority: 'Priority', location_text: 'Location', description: 'Description' };
+  const EDITABLE = Object.keys(FIELD_LABELS);
+  const STATUS_TABS = [['proposed', 'Waiting for approval'], ['approved', 'Approved'], ['rejected', 'Rejected']];
+
+  async function renderIntakeQueue(params) {
+    const status = STATUS_TABS.some(([s]) => s === params.status) ? params.status : 'proposed';
+    mount('intake', '<p class="muted">Loading the intake queue…</p>');
+    const res = await api('GET', `/intake/drafts?status=${status}`);
+    if (res.status !== 200) return mount('intake', `<p class="banner bad">${esc(res.body?.message ?? 'The queue could not be loaded.')}</p>`);
+    const items = res.body.items;
+    const tabs = `<div class="toolbar">${STATUS_TABS.map(([s, label]) => `<a class="tab ${s === status ? 'active' : ''}" href="#/intake?status=${s}">${esc(label)}</a>`).join('')}
+      <span class="spacer"></span><span class="muted">${items.length} item${items.length === 1 ? '' : 's'}</span></div>`;
+    const empty = `<div class="card empty"><h2>${status === 'proposed' ? 'Nothing waiting for approval' : `Nothing ${status} yet`}</h2>
+      <p>Citizen requests and Blue Stakes tickets appear here as drafts as soon as they arrive.</p></div>`;
+    const decided = status !== 'proposed';
+    const table = `<table class="queue">
+      <thead><tr><th class="q-source">Source</th><th class="q-draft">Drafted work order</th><th class="q-needs">${decided ? 'Decision' : 'Needs'}</th>
+        <th class="q-who">Performs the work</th><th class="q-who">${decided ? 'Decided by' : 'Must approve'}</th><th class="q-when">Drafted</th></tr></thead>
+      <tbody>${items.map((d) => {
+        const f = d.final ?? d.proposed;
+        const needs = decided
+          ? `<span class="pill ${d.status === 'approved' ? 'completed' : 'open'}">${esc(d.status)}</span>`
+          : (d.missing.length ? d.missing.map((m) => `<span class="pill attention">${esc(FIELD_LABELS[m] ?? m)} needed</span>`).join(' ') : '<span class="pill completed">Ready</span>');
+        const approver = decided ? esc(d.reviewed_by_name ?? '—') : `${esc(d.approver_label)}<br><span class="muted">or ${esc(d.who_can_approve.filter((r) => r !== d.approver_label).join(', '))}</span>`;
+        return `<tr data-id="${esc(d.id)}" tabindex="0">
+          <td>${esc(d.source.kind)}<br><span class="muted">${esc(d.source.reference)}</span></td>
+          <td title="${esc(f.title ?? '')}">${esc(f.title ?? 'Untitled')}<br><span class="muted">${esc(f.work_type ?? 'type not determined')} · ${esc(f.priority)}</span></td>
+          <td>${needs}</td>
+          <td>${esc(d.performer_label)}</td>
+          <td>${approver}</td>
+          <td>${esc(day(d.drafted_at))}</td></tr>`;
+      }).join('')}</tbody></table>`;
+    mount('intake', `<h1>AI intake</h1>
+      <p class="sub">The intake agent drafts a work order from each citizen request and Blue Stakes ticket. Nothing reaches the work order list until a named person approves it.</p>
+      ${tabs}${items.length ? table : empty}`);
+    document.querySelectorAll('tbody tr').forEach((tr) => {
+      const open = () => { location.hash = `#/intake/${tr.dataset.id}`; };
+      tr.addEventListener('click', open);
+      tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') open(); });
+    });
+  }
+
+  async function renderDraft(id, notice) {
+    mount('intake', '<p class="muted">Loading the draft…</p>');
+    const res = await api('GET', `/intake/drafts/${encodeURIComponent(id)}`);
+    if (res.status !== 200) return mount('intake', `<p><a href="#/intake">← AI intake</a></p><p class="banner bad">${esc(res.body?.message ?? 'Not found.')}</p>`);
+    const d = res.body.item;
+    const etag = res.etag;
+    const open = d.status === 'proposed';
+    const mine = d.final ?? d.proposed;
+    const why = Object.fromEntries(d.undetermined.map((u) => [u.field, u.reason]));
+
+    const decision = {
+      approved: `<p class="banner good">Approved by <strong>${esc(d.reviewed_by_name)}</strong> on ${esc(when(d.reviewed_at))}. <a href="#/work-orders/${esc(d.work_order_id)}">Open the work order</a></p>`,
+      rejected: `<p class="banner warn">Rejected by <strong>${esc(d.reviewed_by_name)}</strong> on ${esc(when(d.reviewed_at))}: ${esc(d.review_note)}</p>`,
+      superseded: '<p class="banner warn">This draft was replaced by a newer one because its source changed. It is kept for the record; open the newer draft from the queue.</p>',
+      approving: '<p class="banner warn">Someone is approving this draft right now.</p>',
+    }[d.status] ?? '';
+    const input = (f) => {
+      const v = mine[f] ?? '';
+      if (f === 'priority') return `<select data-field="priority">${PRIORITIES.map((p) => `<option ${v === p ? 'selected' : ''}>${p}</option>`).join('')}</select>`;
+      if (f === 'description') return `<textarea data-field="description">${esc(v)}</textarea>`;
+      return `<input data-field="${f}" value="${esc(v)}" class="wide">`;
+    };
+    const rows = EDITABLE.map((f) => `<tr class="${why[f] ? 'undetermined' : ''}">
+      <th scope="row">${esc(FIELD_LABELS[f])}${d.missing.includes(f) ? '<br><span class="pill attention">needed</span>' : ''}</th>
+      <td>${d.proposed[f] ? esc(d.proposed[f]) : '<span class="muted">— not determined</span>'}${why[f] ? `<br><span class="field-reason">${esc(why[f])}</span>` : ''}</td>
+      <td>${open ? input(f) : esc(mine[f] ?? '—')}</td></tr>`).join('');
+
+    mount('intake', `<p><a href="#/intake">← AI intake</a></p>
+      <h1>${esc(d.source.kind)} ${esc(d.source.reference)}</h1>
+      <p class="sub"><span class="pill ${d.status === 'approved' ? 'completed' : 'open'}">${esc(d.status)}</span> · drafted by ${esc(d.drafted_by)} on ${esc(when(d.drafted_at))}</p>
+      <div id="notice">${notice ?? ''}</div>${decision}
+      <div class="grid2">
+        <div class="stack">
+          <section class="card"><h2>The agent's proposal, and your version</h2>
+            <p class="muted">The proposal on the left is kept as it was. What you approve is the version on the right.</p>
+            <table class="compare"><thead><tr><th class="c-field">Field</th><th class="c-proposed">Agent proposed</th><th class="c-mine">${open ? 'Your version' : 'Saved version'}</th></tr></thead>
+              <tbody>${rows}</tbody></table>
+            ${open ? `<div class="actions"><button class="primary" type="button" id="approve">Approve and create the work order</button>
+              <button type="button" id="save">Save correction</button></div>
+              <label for="reason">Reject, with the reason (kept internally)</label><textarea id="reason"></textarea>
+              <div class="actions"><button type="button" id="reject">Reject</button></div>` : ''}
+          </section>
+        </div>
+        <div class="stack">
+          <section class="card"><h2>Who</h2><dl class="facts">
+            <dt>Performs the work</dt><dd>${esc(d.performer_label)}</dd>
+            <dt>Must approve</dt><dd>${esc(d.approver_label)} <span class="muted">(${esc(d.who_can_approve.join(', '))} can approve)</span></dd>
+            <dt>Drafted by</dt><dd>${esc(d.drafted_by)}</dd>
+            ${d.reviewed_by_name ? `<dt>Decided by</dt><dd>${esc(d.reviewed_by_name)}</dd>` : ''}
+          </dl></section>
+          <section class="card"><h2>Source</h2><dl class="facts">
+            <dt>${esc(d.source.kind)}</dt><dd>${esc(d.source.reference)}</dd>
+            <dt>Says</dt><dd>${esc(d.source.text)}</dd>
+            <dt>Category</dt><dd>${esc(d.source.category)}</dd>
+            <dt>Location</dt><dd>${esc(d.source.location)}</dd>
+            <dt>Received</dt><dd>${esc(when(d.source.received_at))}</dd>
+            ${d.source.due_at ? `<dt>Answer due</dt><dd>${esc(when(d.source.due_at))}</dd>` : ''}
+          </dl><p class="muted">Contact details are never shown to the agent or here.</p></section>
+        </div>
+      </div>`);
+    if (!open) return;
+
+    const say = (html) => { document.getElementById('notice').innerHTML = html; markLayout(); };
+    const yourVersion = () => Object.fromEntries([...document.querySelectorAll('[data-field]')].map((el) => [el.dataset.field, el.value.trim() || null]));
+    const act = async (path, body, onDone) => {
+      const attempt = async () => {
+        try {
+          const r = await api('POST', `/intake/drafts/${encodeURIComponent(id)}/${path}`, { body, etag });
+          if (r.status === 412) return say('<p class="banner bad">Someone changed this draft after you opened it, so nothing was saved. <a href="" id="reload">Reload it</a> to see their change.</p>');
+          if (r.status === 409 && r.body?.error === 'source_changed') {
+            say(`<p class="banner bad">${esc(r.body.message)} <button type="button" id="redraft">Re-draft from the source</button></p>`);
+            document.getElementById('redraft').addEventListener('click', async () => {
+              const again = await api('POST', `/intake/drafts/${encodeURIComponent(id)}/redraft`, { body: {} });
+              location.hash = `#/intake/${again.body.item.id}`;
+            });
+            return;
+          }
+          if (r.status >= 400) return say(`<p class="banner bad">${esc(r.body?.message ?? 'Not saved.')}${r.body?.problems ? ` ${esc(r.body.problems.join('; '))}` : ''}</p>`);
+          onDone(r.body);
+        } catch (err) {
+          if (err instanceof SessionExpired) return signInAgain(attempt);
+          say('<p class="banner bad">The system could not be reached, so nothing was saved. Your version is still here; try again.</p>');
+        }
+      };
+      await attempt();
+    };
+    document.getElementById('approve').addEventListener('click', () => act('approve', { changes: yourVersion() }, (b) => {
+      location.hash = `#/work-orders/${b.work_order_id}`;
+    }));
+    document.getElementById('save').addEventListener('click', () => act('correct', { changes: yourVersion() }, () => renderDraft(id, '<p class="banner good">Your correction is saved. The agent\'s proposal is kept as it was.</p>')));
+    document.getElementById('reject').addEventListener('click', () => act('reject', { reason: document.getElementById('reason').value }, () => renderDraft(id)));
+  }
+
   // ---------- screens still to come ----------
   function renderPlaceholder(route) {
     const n = NAV.find((x) => x.route === route);
@@ -314,6 +455,10 @@
       if (!parts.length || parts[0] === 'work-orders') {
         if (parts[1]) return await renderDetail(decodeURIComponent(parts[1]));
         return await renderList(Object.fromEntries(new URLSearchParams(query ?? '')));
+      }
+      if (parts[0] === 'intake') {
+        if (parts[1]) return await renderDraft(decodeURIComponent(parts[1]));
+        return await renderIntakeQueue(Object.fromEntries(new URLSearchParams(query ?? '')));
       }
       if (NAV.some((n) => n.route === parts[0])) return renderPlaceholder(parts[0]);
       mount('', '<p class="banner bad">No such screen.</p>');

@@ -1,16 +1,18 @@
 // Citizen requests from the public site (STORY-003, REQ-037).
 //
-// A submission becomes a service request plus a work order in the normal system (created by
-// 'public-portal' through createWorkOrder, so it is audited like any other). The citizen gets a
-// tracking code. Every submission attempt — accepted, duplicate or rejected — is written to
-// public_submission_log with its IP address and time.
+// A submission becomes a service request, and the intake agent drafts a work order for it
+// (STORY-015). The work order itself is created only when a named person approves the draft, so
+// nothing reaches the live queue unreviewed. The citizen gets a tracking code at once and can follow
+// the request from "waiting for review" onwards. Every submission attempt — accepted, duplicate or
+// rejected — is written to public_submission_log with its IP address and time.
 //
 // New requests are NOT public: staff decide whether a work order is published.
 
 import { randomInt, randomUUID } from 'node:crypto';
 import { inTransaction } from './db.js';
-import { createWorkOrder, getWorkOrder, writeAudit, ValidationError, NotFoundError } from './workOrders.js';
+import { getWorkOrder, writeAudit, ValidationError, NotFoundError } from './workOrders.js';
 import { getSetting } from './settings.js';
+import { proposeDraft } from './intake.js';
 
 export const PORTAL_ACTOR = 'public-portal';
 const defaultNow = () => new Date().toISOString();
@@ -89,10 +91,10 @@ function receipt(row, duplicate) {
  *
  * - Invalid: logged as 'rejected' with the problems, ValidationError thrown, nothing else saved.
  * - Same submission_id again (a double-click or retry): logged as 'duplicate', the original receipt returned.
- * - Valid: a work order is created (audited, actor public-portal), then the service request is saved
- *   and logged as 'accepted'. If saving the request fails after the work order was made, sending the
- *   same submission again finishes the job without a second work order (the work order's request_id
- *   is derived from the submission_id).
+ * - Valid: the service request is saved and logged as 'accepted', and the intake agent drafts a work
+ *   order for it (STORY-015). No work order exists until a person approves that draft. If drafting
+ *   fails, the request is still saved and the citizen still gets their tracking code; draftNewArrivals
+ *   (server/intake.js) drafts it later.
  */
 // The rate limit is read from settings on every submission (STORY-008), so a change applies to the very next one.
 export async function submitPublicRequest(db, input, {
@@ -126,16 +128,7 @@ export async function submitPublicRequest(db, input, {
   const category = text(input.category) || 'citizen_request';
   const location = text(input.location_text);
 
-  const workOrder = await createWorkOrder(db, {
-    request_id: `public:${submissionId}`,
-    title: description.length > 80 ? `${description.slice(0, 77)}…` : description,
-    description,
-    work_type: category,
-    location_text: location,
-    created_by: PORTAL_ACTOR,
-  }, { gis, now });
-
-  return inTransaction(db, () => {
+  const saved = inTransaction(db, () => {
     const raced = db.prepare('SELECT * FROM service_requests WHERE submission_id = ?').get(submissionId);
     if (raced) {
       logSubmission(db, { ip, at, outcome: 'duplicate', serviceRequestId: raced.id });
@@ -153,7 +146,7 @@ export async function submitPublicRequest(db, input, {
       latitude: input.latitude ?? null,
       longitude: input.longitude ?? null,
       contact: text(input.contact) || null,
-      work_order_id: workOrder.id,
+      work_order_id: null, // set when a person approves the intake draft
       submitted_at: at,
     };
     db.prepare(`INSERT INTO service_requests (id, tracking_code, submission_id, description, category, location_text,
@@ -161,8 +154,16 @@ export async function submitPublicRequest(db, input, {
                 VALUES (:id, :tracking_code, :submission_id, :description, :category, :location_text,
                 :latitude, :longitude, :contact, :work_order_id, :submitted_at)`).run(row);
     logSubmission(db, { ip, at, outcome: 'accepted', serviceRequestId: row.id });
-    return receipt(row, false);
+    return { receipt: receipt(row, false), id: row.id };
   });
+  if (saved.receipt?.duplicate !== false) return saved; // a duplicate that raced in: already drafted
+
+  try {
+    await proposeDraft(db, { sourceType: 'citizen_request', sourceId: saved.id }, { now });
+  } catch (err) {
+    console.error('Intake: the request was saved but could not be drafted yet; draftNewArrivals will retry', err);
+  }
+  return saved.receipt;
 }
 
 // ---------- publishing (staff) ----------
@@ -200,6 +201,7 @@ const STATUS_LABELS = { open: 'Open', completed: 'Completed' };
 // is internal and is left out of the history.
 const HISTORY_LABELS = {
   create: 'Request received',
+  intake_approve: 'Reviewed and accepted as a work order', // STORY-015: a person approved the intake draft
   update: 'Work order updated',
   gis_update: 'Location details updated',
   complete: 'Work completed',
@@ -210,21 +212,47 @@ const HISTORY_LABELS = {
  * The public view of one work order: what it is, its current status, and a dated history.
  * Never includes who did what, internal notes, before/after values, contact details or IPs.
  */
-function publicView(db, wo, trackingCode = null) {
-  const history = db.prepare("SELECT action, occurred_at FROM audit_entries WHERE entity_type = 'work_order' AND entity_id = ? ORDER BY id")
+function publicView(db, wo, trackingCode = null, request = null) {
+  let history = db.prepare("SELECT action, occurred_at FROM audit_entries WHERE entity_type = 'work_order' AND entity_id = ? ORDER BY id")
     .all(wo.id)
     .filter((a) => Object.hasOwn(HISTORY_LABELS, a.action))
     .map((a) => ({ at: a.occurred_at, event: HISTORY_LABELS[a.action] }));
+  // A citizen's request: it was received when they sent it; the work order came later, when a person approved it.
+  if (request) history = [{ at: request.submitted_at, event: 'Request received' }, ...history.filter((h) => h.event !== 'Request received')];
   return {
     reference: trackingCode,
     title: wo.title,
     category: wo.work_type,
     status: STATUS_LABELS[wo.status] ?? wo.status,
     location: wo.address ?? wo.location_text,
-    reported_at: wo.created_at,
+    reported_at: request?.submitted_at ?? wo.created_at,
     last_updated_at: wo.updated_at,
     completed_at: wo.completed_at,
     history,
+  };
+}
+
+/**
+ * A citizen's request that is not (yet) a work order: waiting for a person to review the intake draft,
+ * or reviewed and not taken forward. The reviewer's reason is internal and never shown here.
+ */
+function requestView(db, req) {
+  const draft = db.prepare("SELECT status, reviewed_at FROM intake_drafts WHERE source_type = 'citizen_request' AND source_id = ? ORDER BY drafted_at DESC, rowid DESC").get(req.id);
+  const declined = draft?.status === 'rejected';
+  const summary = req.description.length > 80 ? `${req.description.slice(0, 77)}…` : req.description;
+  return {
+    reference: req.tracking_code,
+    title: summary,
+    category: req.category,
+    status: declined ? 'Reviewed: not taken forward' : 'Received, waiting for review',
+    location: req.location_text,
+    reported_at: req.submitted_at,
+    last_updated_at: declined ? draft.reviewed_at : req.submitted_at,
+    completed_at: null,
+    history: [
+      { at: req.submitted_at, event: 'Request received' },
+      ...(declined ? [{ at: draft.reviewed_at, event: 'Reviewed: not taken forward' }] : []),
+    ],
   };
 }
 
@@ -238,13 +266,14 @@ export function getPublicView(db, { trackingCode, workOrderId } = {}) {
   if (typeof trackingCode === 'string' && trackingCode.trim()) {
     const req = db.prepare('SELECT * FROM service_requests WHERE tracking_code = ?').get(trackingCode.trim().toUpperCase());
     if (!req) throw new PublicNotFoundError();
-    return publicView(db, getWorkOrder(db, req.work_order_id), req.tracking_code);
+    if (!req.work_order_id) return requestView(db, req);
+    return publicView(db, getWorkOrder(db, req.work_order_id), req.tracking_code, req);
   }
   if (typeof workOrderId === 'string' && workOrderId.trim()) {
     const wo = getWorkOrder(db, workOrderId.trim());
     if (!wo || wo.is_public !== 1) throw new PublicNotFoundError();
-    const req = db.prepare('SELECT tracking_code FROM service_requests WHERE work_order_id = ?').get(wo.id);
-    return { id: wo.id, ...publicView(db, wo, req?.tracking_code ?? null) };
+    const req = db.prepare('SELECT tracking_code, submitted_at FROM service_requests WHERE work_order_id = ?').get(wo.id);
+    return { id: wo.id, ...publicView(db, wo, req?.tracking_code ?? null, req ?? null) };
   }
   throw new ValidationError(['a tracking code or work order id is required']);
 }

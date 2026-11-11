@@ -1,4 +1,6 @@
 // STORY-003 — public interface for citizen requests.
+// Since STORY-015 (AI-first intake), a request becomes a work order only when a named person approves
+// the intake agent's draft; tests that need the work order approve it with tests/helpers/intake.js.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,6 +11,8 @@ import {
   submitPublicRequest, validateSubmission, PORTAL_ACTOR, publishWorkOrder, getPublicView, listPublicWorkOrders,
   purgeSubmissionIps, PublicNotFoundError,
 } from '../server/publicRequests.js';
+import { listDrafts, rejectDraft } from '../server/intake.js';
+import { approveRequest, approver, APPROVER_EMAIL } from './helpers/intake.js';
 
 const IP = '203.0.113.7'; // documentation-range address, not a real person
 const count = (db, table) => db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
@@ -24,7 +28,7 @@ const good = (extra = {}) => ({
 
 // ---------- AC1: a citizen request, when submitted, appears in the work order system ----------
 
-test('AC1: a submitted request appears in the work order system, and the citizen gets a tracking code', async () => {
+test('AC1: a submitted request reaches the work order system once a named person approves its draft; the citizen gets a tracking code', async () => {
   const db = openDatabase();
   const r = await submitPublicRequest(db, good(), { ip: IP });
 
@@ -34,34 +38,42 @@ test('AC1: a submitted request appears in the work order system, and the citizen
   assert.deepEqual(Object.keys(r).sort(), ['duplicate', 'status', 'submitted_at', 'tracking_code'], 'nothing internal goes back to the citizen');
 
   const req = db.prepare('SELECT * FROM service_requests WHERE tracking_code = ?').get(r.tracking_code);
-  const wo = getWorkOrder(db, req.work_order_id);
-  assert.equal(wo.description, 'Streetlight has been out for a week near the bus stop');
+  assert.equal(req.work_order_id, null, 'no work order until a person approves (STORY-015)');
+  assert.equal(count(db, 'work_orders'), 0);
+  const [draft] = listDrafts(db);
+  assert.deepEqual([draft.source_id, draft.proposed.work_type], [req.id, 'streetlight'], 'the agent drafted it');
+
+  const wo = getWorkOrder(db, await approveRequest(db, r.tracking_code));
+  assert.match(wo.description, /Streetlight has been out for a week near the bus stop/);
   assert.equal(wo.work_type, 'streetlight');
   assert.equal(wo.location_text, 'Stand-in address: 140 Example Way');
-  assert.equal(wo.created_by, PORTAL_ACTOR);
+  assert.equal(wo.created_by, APPROVER_EMAIL, 'the work order is created by the person who approved it');
   assert.equal(wo.status, 'open');
   assert.equal(wo.is_public, 0, 'new requests are not public until staff publish them');
 
-  const audit = db.prepare("SELECT * FROM audit_entries WHERE entity_id = ? AND action = 'create'").get(wo.id);
-  assert.equal(audit.actor, PORTAL_ACTOR, 'the work order is audited like any other');
+  const approval = db.prepare("SELECT * FROM audit_entries WHERE entity_id = ? AND action = 'intake_approve'").get(wo.id);
+  assert.equal(approval.actor_user_id, approver(db), 'the work order names who approved it');
+  assert.ok(PORTAL_ACTOR, 'the portal actor still exists for the request itself');
 });
 
 test('a long description is shortened for the work order title but kept in full', async () => {
   const db = openDatabase();
   const long = 'Water is bubbling up through the sidewalk '.repeat(4).trim();
   const r = await submitPublicRequest(db, good({ description: long }), { ip: IP });
-  const wo = getWorkOrder(db, db.prepare('SELECT work_order_id FROM service_requests WHERE tracking_code = ?').get(r.tracking_code).work_order_id);
+  const wo = getWorkOrder(db, await approveRequest(db, r.tracking_code));
   assert.ok(wo.title.length <= 80);
-  assert.equal(wo.description, long);
+  assert.ok(wo.description.includes(long), 'the full description is kept');
 });
 
-test('the same submission sent twice makes one request and one work order', async () => {
+test('the same submission sent twice makes one request, one draft and, once approved, one work order', async () => {
   const db = openDatabase();
   const first = await submitPublicRequest(db, good(), { ip: IP });
   const again = await submitPublicRequest(db, good(), { ip: IP });
   assert.equal(again.duplicate, true);
   assert.equal(again.tracking_code, first.tracking_code);
   assert.equal(count(db, 'service_requests'), 1);
+  assert.equal(count(db, 'intake_drafts'), 1);
+  await approveRequest(db, first.tracking_code);
   assert.equal(count(db, 'work_orders'), 1);
 });
 
@@ -116,7 +128,7 @@ async function workedRequest() {
   let minute = 0;
   const at = () => new Date(Date.UTC(2026, 9, 30, 9, minute++)).toISOString();
   const r = await submitPublicRequest(db, good({ contact: 'resident@example.com' }), { ip: IP, now: at });
-  const woId = db.prepare('SELECT work_order_id FROM service_requests WHERE tracking_code = ?').get(r.tracking_code).work_order_id;
+  const woId = await approveRequest(db, r.tracking_code, { now: at });
   await updateWorkOrder(db, woId, { priority: 'high', location_text: 'Stand-in address: 142 Example Way' }, { actor: 'supervisor.jones', now: at });
   publishWorkOrder(db, woId, { actor: 'supervisor.jones', now: at });
   await completeWorkOrder(db, woId, { note: 'Internal: replaced ballast, crew 7', actor: 'crew.smith', now: at });
@@ -130,7 +142,7 @@ test('AC2: a published work order shows its current status and a dated history',
   assert.equal(view.category, 'streetlight');
   assert.equal(view.location, 'Stand-in address: 142 Example Way');
   assert.ok(view.completed_at);
-  assert.deepEqual(view.history.map((h) => h.event), ['Request received', 'Work order updated', 'Work completed'],
+  assert.deepEqual(view.history.map((h) => h.event), ['Request received', 'Reviewed and accepted as a work order', 'Work order updated', 'Work completed'],
     'publishing is internal and is not part of the public history');
   assert.ok(view.history.every((h) => !Number.isNaN(Date.parse(h.at))));
 });
@@ -138,18 +150,35 @@ test('AC2: a published work order shows its current status and a dated history',
 test('the public view never shows staff names, internal notes, contact details or IPs', async () => {
   const { db, r, woId } = await workedRequest();
   const shown = JSON.stringify([getPublicView(db, { workOrderId: woId }), getPublicView(db, { trackingCode: r.tracking_code }), listPublicWorkOrders(db)]);
-  for (const hidden of ['supervisor.jones', 'crew.smith', 'public-portal', 'Internal: replaced ballast', 'resident@example.com', IP, 'before_json', 'priority']) {
+  for (const hidden of ['supervisor.jones', 'crew.smith', 'public-portal', APPROVER_EMAIL, 'Intake Approver', 'Internal: replaced ballast', 'resident@example.com', IP, 'before_json', 'priority']) {
     assert.ok(!shown.includes(hidden), `the public view leaked: ${hidden}`);
   }
 });
 
-test('a citizen can follow their own request by tracking code before it is published', async () => {
+test('a citizen can follow their own request by tracking code, before review and after, before it is published', async () => {
   const db = openDatabase();
   const r = await submitPublicRequest(db, good(), { ip: IP });
-  const view = getPublicView(db, { trackingCode: r.tracking_code.toLowerCase() });
-  assert.equal(view.reference, r.tracking_code);
-  assert.equal(view.status, 'Open');
-  assert.deepEqual(view.history.map((h) => h.event), ['Request received']);
+  const waiting = getPublicView(db, { trackingCode: r.tracking_code.toLowerCase() });
+  assert.equal(waiting.reference, r.tracking_code);
+  assert.equal(waiting.status, 'Received, waiting for review');
+  assert.deepEqual(waiting.history.map((h) => h.event), ['Request received']);
+
+  await approveRequest(db, r.tracking_code);
+  const accepted = getPublicView(db, { trackingCode: r.tracking_code });
+  assert.equal(accepted.status, 'Open');
+  assert.deepEqual(accepted.history.map((h) => h.event), ['Request received', 'Reviewed and accepted as a work order']);
+});
+
+test('a rejected request says it will not be taken forward, without the internal reason', async () => {
+  const db = openDatabase();
+  const r = await submitPublicRequest(db, good(), { ip: IP });
+  const [draft] = listDrafts(db);
+  rejectDraft(db, draft.id, { reason: 'Internal: duplicate of a crew report from this morning', actorUserId: approver(db) });
+  const view = getPublicView(db, { trackingCode: r.tracking_code });
+  assert.equal(view.status, 'Reviewed: not taken forward');
+  assert.deepEqual(view.history.map((h) => h.event), ['Request received', 'Reviewed: not taken forward']);
+  assert.ok(!JSON.stringify(view).includes('duplicate of a crew report'));
+  assert.equal(count(db, 'work_orders'), 0);
 });
 
 // ---------- failure paths: unauthorized access, data not displayed ----------
@@ -157,7 +186,7 @@ test('a citizen can follow their own request by tracking code before it is publi
 test('an unpublished work order looks exactly like one that does not exist', async () => {
   const db = openDatabase();
   const r = await submitPublicRequest(db, good(), { ip: IP });
-  const woId = db.prepare('SELECT work_order_id FROM service_requests WHERE tracking_code = ?').get(r.tracking_code).work_order_id;
+  const woId = await approveRequest(db, r.tracking_code);
 
   let hiddenMessage;
   let missingMessage;
@@ -203,8 +232,8 @@ test('IP addresses older than the retention period are cleared; the rest of the 
 test('the IP address and contact never appear in the work order or its audit entry', async () => {
   const db = openDatabase();
   const r = await submitPublicRequest(db, good({ contact: 'resident@example.com' }), { ip: IP });
-  const req = db.prepare('SELECT * FROM service_requests WHERE tracking_code = ?').get(r.tracking_code);
-  const everything = JSON.stringify([getWorkOrder(db, req.work_order_id), db.prepare('SELECT * FROM audit_entries').all()]);
+  const woId = await approveRequest(db, r.tracking_code);
+  const everything = JSON.stringify([getWorkOrder(db, woId), db.prepare('SELECT * FROM audit_entries').all(), db.prepare('SELECT * FROM intake_drafts').all()]);
   assert.ok(!everything.includes(IP));
   assert.ok(!everything.includes('resident@example.com'));
 });
