@@ -127,3 +127,15 @@ svg.map { width: 100%; height: auto; display: block; border-radius: 10px; }
 .key.pt-pin { border: 2px dashed var(--ink); } .key.pt-differs-key { border: 3px solid var(--warn); }
 .check { display: inline-flex; gap: 6px; align-items: center; }
 input[type="date"] { min-width: 0; }
+
+/* Administration (STORY-017) */
+.toolbar.tight { gap: 6px; margin: 0; }
+.role-chip { display: inline-flex; gap: 4px; align-items: center; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 1px 4px 1px 10px; font-size: .85rem; margin: 2px 0; }
+.link-button { border: 0; background: transparent; color: var(--muted); padding: 2px 6px; font-size: .78rem; text-decoration: underline; cursor: pointer; }
+table.admin-users td, table.admin-roles td, table.admin-settings td, table.admin-audit td { white-space: normal; vertical-align: top; }
+table.admin-users tbody tr, table.admin-roles tbody tr, table.admin-settings tbody tr, table.admin-audit tbody tr { cursor: default; }
+.u-name { width: 22%; } .u-status { width: 11%; } .u-roles { width: 27%; } .u-grant { width: 22%; } .u-actions { width: 18%; }
+.r-name { width: 20%; } .r-desc { width: 35%; } .r-perms { width: 45%; }
+.s-name { width: 38%; } .s-value { width: 12%; } .s-default { width: 14%; } .s-changed { width: 18%; } .s-actions { width: 18%; }
+.a-when { width: 15%; } .a-actor { width: 19%; } .a-what { width: 22%; } .a-prev { width: 22%; } .a-new { width: 22%; }
+code.key-once { display: block; margin-top: 8px; padding: 8px 10px; background: var(--panel); color: var(--ink); border-radius: 8px; overflow-wrap: anywhere; font-size: .85rem; }

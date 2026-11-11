@@ -497,6 +497,20 @@
       "title": "The map has no street layer",
       "body": "A street basemap needs an outside map service (and the console's security policy only loads from its own server). The map is drawn on a coordinate grid with a scale bar; the same data opens on the city's own GIS map as GeoJSON. Work orders typed in without coordinates are listed beside the map, not placed.",
       "evidence": "server/console/app.js (renderMap); server/api/publicRoutes.js (PAGE_SECURITY_HEADERS)"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "decision",
+      "title": "The administration screens have no permission rules of their own",
+      "body": "Users, roles, settings and the audit trail are screens over the existing access, settings and audit APIs, called with the signed-in person's session. The API decides every read and change, so no screen can grant what the API would refuse, and the API records every refusal; the screen only explains it.",
+      "evidence": "server/console/app.js (administration); tests/adminConsole.test.js"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "limitation",
+      "title": "Users are deactivated, never deleted",
+      "body": "A role change for a user id that does not exist is refused (404) and the screen refreshes; a deactivated user cannot be given roles (409). Users are never deleted, so the audit trail always points at a real person. The console manages roles' members and settings; defining new roles is done through the roles API.",
+      "evidence": "server/access.js (setUserActive); tests/adminConsole.test.js (no longer exists)"
     }
   ]
 }

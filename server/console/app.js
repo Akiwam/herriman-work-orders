@@ -15,8 +15,7 @@
     { route: 'work-orders', label: 'Work orders' },
     { route: 'intake', label: 'AI intake' },
     { route: 'map', label: 'Map' },
-    { route: 'admin', label: 'Administration', story: 'STORY-017', soon: 'Users, roles, settings and workflows in one place.',
-      basis: 'Everything it will manage already exists in the system\'s API.' },
+    { route: 'admin', label: 'Administration' },
     { route: 'integrations', label: 'Integrations & readiness', story: 'STORY-018', soon: 'Vendor feeds, GIS and Blue Stakes, and the go-live readiness assessment.',
       basis: 'Everything it will show already exists in the system\'s API.' },
   ];
@@ -561,6 +560,164 @@
     });
   }
 
+
+  // ---------- administration (STORY-017) ----------
+  // Screens over the access, settings and audit APIs (STORY-007, STORY-008). There are no permission
+  // rules here: every read and change goes to the same API with the signed-in person's session, so the
+  // console can never grant what the API would refuse, and every refusal is recorded by the API itself.
+  const ADMIN_TABS = [
+    ['users', 'Users', 'access:admin'], ['roles', 'Roles', 'access:admin'],
+    ['settings', 'Settings', 'settings:admin'], ['audit', 'Audit trail', 'audit:read'],
+  ];
+  const AUDIT_TYPES = ['', 'work_order', 'user', 'user_role', 'role', 'setting', 'intake_draft', 'workflow', 'readiness_item', 'readiness_assessment', 'vendor_coordination', 'api_access', 'console_session'];
+
+  function adminShell(tab, content) {
+    const tabs = ADMIN_TABS.map(([key, label]) => `<a class="tab ${key === tab ? 'active' : ''}" href="#/admin/${key}">${esc(label)}</a>`).join('');
+    mount('admin', `<h1>Administration</h1><p class="sub">Users, roles, system settings and the audit trail. Every change goes through the same checks as the API and is recorded.</p>
+      <div class="toolbar">${tabs}</div><div id="notice"></div>${content}`);
+  }
+  const notice = (html) => { document.getElementById('notice').innerHTML = html; markLayout(); };
+
+  /** The API refused: say which permission is needed. The API has already recorded the attempt. */
+  function refusedScreen(tab, res) {
+    const [, label, permission] = ADMIN_TABS.find(([key]) => key === tab);
+    adminShell(tab, `<div class="card empty"><h2>You don't have access to ${esc(label.toLowerCase())}</h2>
+      <p>It needs the ${esc(permission)} permission, which your roles do not include. This attempt has been recorded in the audit trail.</p>
+      <p class="muted">${esc(res.body?.message ?? '')}</p></div>`);
+  }
+
+  /** Send one administration change; handles an expired session (sign in, retry) and shows any refusal in plain words. */
+  async function adminChange(method, path, { body, etag, ok, onNotFound } = {}) {
+    const attempt = async () => {
+      try {
+        const r = await api(method, path, { body, etag });
+        if (r.status === 404 && onNotFound) return onNotFound(r);
+        if (r.status === 412) return notice('<p class="banner bad">This changed since you opened it, so nothing was saved. Reload the page to see the current value.</p>');
+        if (r.status >= 400) return notice(`<p class="banner bad">${esc(r.body?.message ?? 'Not saved.')}${r.body?.problems ? ` ${esc(r.body.problems.join('; '))}` : ''}</p>`);
+        return ok(r);
+      } catch (err) {
+        if (err instanceof SessionExpired) return signInAgain(attempt);
+        return notice('<p class="banner bad">The system could not be reached, so nothing was changed. Try again.</p>');
+      }
+    };
+    await attempt();
+  }
+
+  async function renderAdminUsers(message) {
+    adminShell('users', '<p class="muted">Loading users…</p>');
+    const [users, roles] = await Promise.all([api('GET', '/users'), api('GET', '/roles')]);
+    if (users.status === 403 || users.status === 401) return refusedScreen('users', users);
+    if (users.status !== 200) return adminShell('users', `<p class="banner bad">${esc(users.body?.message ?? 'Users could not be loaded.')}</p>`);
+    const roleNames = Object.fromEntries((roles.body?.items ?? []).map((r) => [r.id, r.name]));
+    const rows = users.body.items.map((u) => `<tr>
+      <td>${esc(u.display_name)}<br><span class="muted">${esc(u.email)}</span></td>
+      <td><span class="pill ${u.is_active ? 'completed' : 'attention'}">${u.is_active ? 'active' : 'deactivated'}</span></td>
+      <td>${u.roles.length ? u.roles.map((r) => `<span class="role-chip">${esc(roleNames[r] ?? r)} <button type="button" class="link-button" data-remove="${esc(u.id)}" data-role="${esc(r)}" aria-label="Remove ${esc(roleNames[r] ?? r)} from ${esc(u.display_name)}">remove</button></span>`).join(' ') : '<span class="muted">no roles: can do nothing</span>'}</td>
+      <td><div class="toolbar tight"><select data-grant-select="${esc(u.id)}">${Object.entries(roleNames).filter(([id]) => !u.roles.includes(id)).map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join('')}</select>
+        <button type="button" data-grant="${esc(u.id)}">Grant</button></div></td>
+      <td><div class="toolbar tight">${u.is_active
+        ? `<button type="button" data-deactivate="${esc(u.id)}">Deactivate</button> <button type="button" data-key="${esc(u.id)}">Issue key</button>`
+        : `<button type="button" data-reactivate="${esc(u.id)}">Reactivate</button>`}</div></td></tr>`).join('');
+    adminShell('users', `<table class="admin-users"><thead><tr><th class="u-name">Person</th><th class="u-status">Status</th><th class="u-roles">Roles</th><th class="u-grant">Grant a role</th><th class="u-actions">Account</th></tr></thead>
+      <tbody>${rows}</tbody></table>`);
+    if (message) notice(message);
+
+    const gone = () => renderAdminUsers('<p class="banner bad">This user no longer exists, so nothing was changed. The list has been refreshed.</p>');
+    const done = (text) => () => renderAdminUsers(`<p class="banner good">${esc(text)}</p>`);
+    document.querySelectorAll('[data-grant]').forEach((b) => b.addEventListener('click', () => {
+      const roleId = document.querySelector(`[data-grant-select="${b.dataset.grant}"]`).value;
+      adminChange('POST', `/users/${encodeURIComponent(b.dataset.grant)}/roles`, { body: { role_id: roleId }, ok: done(`Role granted: ${roleNames[roleId] ?? roleId}.`), onNotFound: gone });
+    }));
+    document.querySelectorAll('[data-remove]').forEach((b) => b.addEventListener('click', () => adminChange('DELETE',
+      `/users/${encodeURIComponent(b.dataset.remove)}/roles/${encodeURIComponent(b.dataset.role)}`, { ok: done(`Role removed: ${roleNames[b.dataset.role] ?? b.dataset.role}.`), onNotFound: gone })));
+    document.querySelectorAll('[data-deactivate]').forEach((b) => b.addEventListener('click', () => adminChange('POST',
+      `/users/${encodeURIComponent(b.dataset.deactivate)}/deactivate`, { body: {}, ok: done('Deactivated: they are refused from their next request.'), onNotFound: gone })));
+    document.querySelectorAll('[data-reactivate]').forEach((b) => b.addEventListener('click', () => adminChange('POST',
+      `/users/${encodeURIComponent(b.dataset.reactivate)}/reactivate`, { body: {}, ok: done('Reactivated. Issue them a new key: the old one does not come back.'), onNotFound: gone })));
+    document.querySelectorAll('[data-key]').forEach((b) => b.addEventListener('click', () => adminChange('POST',
+      `/users/${encodeURIComponent(b.dataset.key)}/key`, { body: {}, onNotFound: gone, ok: (r) => notice(`<div class="banner warn">New personal key for ${esc(r.body.item.display_name)}. Give it to them now: it is shown once, cannot be shown again, and their old key has stopped working.
+        <code class="key-once">${esc(r.body.key)}</code></div>`) })));
+  }
+
+  async function renderAdminRoles() {
+    adminShell('roles', '<p class="muted">Loading roles…</p>');
+    const res = await api('GET', '/roles');
+    if (res.status === 403 || res.status === 401) return refusedScreen('roles', res);
+    adminShell('roles', `<table class="admin-roles"><thead><tr><th class="r-name">Role</th><th class="r-desc">What it is for</th><th class="r-perms">Permissions</th></tr></thead><tbody>
+      ${res.body.items.map((r) => `<tr><td>${esc(r.name)}<br><span class="muted">${r.builtin ? 'built in' : "the city's own"}</span></td><td>${esc(r.description)}</td>
+        <td>${r.permissions.map((p) => `<span class="pill open">${esc(p)}</span>`).join(' ')}</td></tr>`).join('')}</tbody></table>
+      <p class="muted">Built-in roles cannot be changed. Roles the city defines are managed through the roles API (STORY-008).</p>`);
+  }
+
+  async function renderAdminSettings(message) {
+    adminShell('settings', '<p class="muted">Loading settings…</p>');
+    const res = await api('GET', '/settings');
+    if (res.status === 403 || res.status === 401) return refusedScreen('settings', res);
+    adminShell('settings', `<table class="admin-settings"><thead><tr><th class="s-name">Setting</th><th class="s-value">Value</th><th class="s-default">Default and range</th><th class="s-changed">Last changed</th><th class="s-actions"></th></tr></thead><tbody>
+      ${res.body.items.map((s) => `<tr>
+        <td>${esc(s.key)}<br><span class="muted">${esc(s.description)}</span>${s.problem ? `<br><span class="field-reason">${esc(s.problem)}</span>` : ''}</td>
+        <td><input type="number" class="wide" data-setting="${esc(s.key)}" value="${esc(s.value)}" min="${esc(s.min)}" max="${esc(s.max)}"></td>
+        <td>${esc(s.default)}<br><span class="muted">${esc(s.min)} to ${esc(s.max)}</span></td>
+        <td>${s.is_default ? '<span class="muted">never: the default</span>' : esc(when(s.updated_at))}<br><span class="muted">version ${esc(s.version)}</span></td>
+        <td><div class="toolbar tight"><button type="button" data-save="${esc(s.key)}" data-version="${esc(s.version)}">Save</button>
+          ${s.is_default ? '' : `<button type="button" data-reset="${esc(s.key)}" data-version="${esc(s.version)}">Reset</button>`}</div></td></tr>`).join('')}</tbody></table>`);
+    if (message) notice(message);
+    document.querySelectorAll('[data-save]').forEach((b) => b.addEventListener('click', () => {
+      const raw = document.querySelector(`[data-setting="${b.dataset.save}"]`).value;
+      const value = raw.trim() === '' ? null : Number(raw);
+      adminChange('PUT', `/settings/${encodeURIComponent(b.dataset.save)}`, {
+        body: { value }, etag: `"v${b.dataset.version}"`,
+        ok: (r) => renderAdminSettings(`<p class="banner good">${r.body.changed ? `Saved: ${esc(b.dataset.save)} is now ${esc(r.body.item.value)}. It applies from the next request.` : 'Already that value: nothing changed.'}</p>`),
+      });
+    }));
+    document.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', () => adminChange('DELETE', `/settings/${encodeURIComponent(b.dataset.reset)}`, {
+      etag: `"v${b.dataset.version}"`, ok: () => renderAdminSettings(`<p class="banner good">${esc(b.dataset.reset)} is back to its default.</p>`),
+    })));
+  }
+
+  /** The fields that changed between before and after, as short "field: value" text for each side. */
+  function auditChange(before, after) {
+    const show = (v) => (v === null || v === undefined ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v));
+    if (!before && !after) return ['—', '—'];
+    if (!before || typeof before !== 'object') return ['—', Object.entries(after ?? {}).slice(0, 4).map(([k, v]) => `${k}: ${show(v)}`).join('; ')];
+    const keys = [...new Set([...Object.keys(before), ...Object.keys(after ?? {})])].filter((k) => show(before[k]) !== show(after?.[k]) && !['version', 'updated_at'].includes(k));
+    const side = (o) => keys.slice(0, 4).map((k) => `${k}: ${show(o?.[k])}`).join('; ') || '—';
+    return [side(before), side(after)];
+  }
+
+  async function renderAdminAudit(params) {
+    adminShell('audit', '<p class="muted">Loading the audit trail…</p>');
+    const filters = Object.fromEntries(['entity_type', 'action', 'from', 'to', 'cursor'].map((k) => [k, params[k] ?? '']).filter(([, v]) => v));
+    const res = await api('GET', `/audit?${new URLSearchParams({ ...filters, limit: '25' })}`);
+    if (res.status === 403 || res.status === 401) return refusedScreen('audit', res);
+    if (res.status !== 200) return adminShell('audit', `<p class="banner bad">${esc(res.body?.problems?.join('; ') ?? res.body?.message ?? 'The audit trail could not be loaded.')}</p>`);
+    const items = res.body.items;
+    const short = (v, n = 90) => (v.length > n ? `${v.slice(0, n - 1)}…` : v);
+    const rows = items.map((e) => {
+      const [was, now] = auditChange(e.before, e.after);
+      return `<tr><td>${esc(when(e.occurred_at))}</td><td title="${esc(e.actor)}">${esc(e.actor)}</td>
+        <td>${esc(e.entity_type.replace(/_/g, ' '))}: <strong>${esc(e.action.replace(/_/g, ' '))}</strong><br><span class="muted">${esc(short(e.entity_id, 40))}</span></td>
+        <td title="${esc(was)}">${esc(short(was))}</td><td title="${esc(now)}">${esc(short(now))}</td></tr>`;
+    }).join('');
+    const filterBar = `<form class="toolbar" id="audit-filters">
+      <label class="muted inline-label" for="a-type">Type</label><select id="a-type">${AUDIT_TYPES.map((t) => `<option value="${t}" ${filters.entity_type === t ? 'selected' : ''}>${t ? t.replace(/_/g, ' ') : 'all'}</option>`).join('')}</select>
+      <label class="muted inline-label" for="a-action">Action</label><input id="a-action" value="${esc(filters.action ?? '')}" placeholder="e.g. grant">
+      <label class="muted inline-label" for="a-from">From</label><input type="date" id="a-from" value="${esc(filters.from ?? '')}">
+      <label class="muted inline-label" for="a-to">before</label><input type="date" id="a-to" value="${esc(filters.to ?? '')}">
+      <button type="submit">Show</button></form>`;
+    adminShell('audit', `${filterBar}${items.length ? `<table class="admin-audit"><thead><tr><th class="a-when">When</th><th class="a-actor">Actor</th><th class="a-what">What</th><th class="a-prev">Previous value</th><th class="a-new">New value</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="toolbar pager"><button type="button" id="a-first" ${filters.cursor ? '' : 'disabled'}>First page</button>
+        <button type="button" id="a-next" ${res.body.next_cursor ? '' : 'disabled'}>Next page</button><span class="muted">Oldest first, 25 per page. Reading the audit trail is itself recorded.</span></div>`
+      : '<div class="card empty"><h2>No audit entries match</h2><p>Try a different type, action or date range.</p></div>'}`);
+    const go = (p) => { location.hash = `#/admin/audit?${new URLSearchParams(Object.entries(p).filter(([, v]) => v))}`; };
+    document.getElementById('audit-filters').addEventListener('submit', (e) => {
+      e.preventDefault();
+      go({ entity_type: document.getElementById('a-type').value, action: document.getElementById('a-action').value.trim(), from: document.getElementById('a-from').value, to: document.getElementById('a-to').value });
+    });
+    document.getElementById('a-next')?.addEventListener('click', () => go({ ...filters, cursor: res.body.next_cursor }));
+    document.getElementById('a-first')?.addEventListener('click', () => go({ ...filters, cursor: '' }));
+  }
+
   // ---------- screens still to come ----------
   function renderPlaceholder(route) {
     const n = NAV.find((x) => x.route === route);
@@ -591,6 +748,13 @@
         return await renderList(Object.fromEntries(new URLSearchParams(query ?? '')));
       }
       if (parts[0] === 'map') return await renderMap(Object.fromEntries(new URLSearchParams(query ?? '')));
+      if (parts[0] === 'admin') {
+        const tab = parts[1] ?? 'users';
+        if (tab === 'roles') return await renderAdminRoles();
+        if (tab === 'settings') return await renderAdminSettings();
+        if (tab === 'audit') return await renderAdminAudit(Object.fromEntries(new URLSearchParams(query ?? '')));
+        return await renderAdminUsers();
+      }
       if (parts[0] === 'intake') {
         if (parts[1]) return await renderDraft(decodeURIComponent(parts[1]));
         return await renderIntakeQueue(Object.fromEntries(new URLSearchParams(query ?? '')));

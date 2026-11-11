@@ -81,11 +81,12 @@ export async function exampleSystem({ workOrders = 60 } = {}) {
 
 /** Open every screen at 1440x900 and report whether each fits. */
 export async function runLayoutCheck({ screenshots = null } = {}) {
-  const { db, gis, key, detailId, undeterminedDraftId, approvedWorkOrderId } = await exampleSystem();
+  const { db, gis, key, samKey, detailId, undeterminedDraftId, approvedWorkOrderId } = await exampleSystem();
   const server = createApiServer(db, { gis });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}/console`;
   const { token } = startSession(db, key);
+  const { token: crewToken } = startSession(db, samKey); // a field crew member, for the refused screen
   const profile = mkdtempSync(join(tmpdir(), 'hwo-edge-'));
   // [name, address, text the screen must show] — the text proves the real screen rendered, not a
   // fallback such as the sign-in page, which would also "fit".
@@ -101,7 +102,10 @@ export async function runLayoutCheck({ screenshots = null } = {}) {
     ['map', `#/map?session=${token}`, /<svg class="map"[\s\S]*Not on the map[\s\S]*GIS differs/],
     ['map with the heat map layer', `#/map?heat=1&session=${token}`, /heat-cell heat-/],
     ['map, date range with no work orders', `#/map?from=2025-01-01&to=2025-02-01&session=${token}`, /No work orders created from 2025-01-01 and before 2025-02-01/],
-    ['administration (placeholder)', `#/admin?session=${token}`, /STORY-017 · coming next<\/p>/],
+    ['administration: users', `#/admin/users?session=${token}`, /Grant a role[\s\S]*Deactivate/],
+    ['administration: settings', `#/admin/settings?session=${token}`, /public\.rate_limit_per_hour[\s\S]*Save/],
+    ['administration: audit trail', `#/admin/audit?session=${token}`, /Previous value[\s\S]*Next page/],
+    ['administration refused (field crew)', `#/admin/users?session=${crewToken}`, /have access to users[\s\S]*has been recorded/],
     ['integrations & readiness (placeholder)', `#/integrations?session=${token}`, /STORY-018 · coming next<\/p>/],
   ];
   const first = await fetch(`${base.replace('/console', '/api/v1')}/console/work-orders`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json());

@@ -22,6 +22,7 @@
     "console": "node --no-warnings server/consoleServe.js",
     "demo:intake": "node --no-warnings server/intakeDemo.js",
     "demo:map": "node --no-warnings server/mapDemo.js",
+    "demo:admin": "node --no-warnings server/adminDemo.js",
     "demo:tickets": "node --no-warnings server/bluestakes/demo.js",
     "demo:public": "node --no-warnings server/public/demo.js",
     "public": "node --no-warnings server/public/serve.js"
