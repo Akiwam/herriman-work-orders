@@ -8,7 +8,7 @@ As a citizen, I want to submit requests and view work order activities, so that 
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-037** (Functional, must) — A public-facing reporting interface allowing citizens to submit requests or view public work order activities.
 
 ## How to build it
 

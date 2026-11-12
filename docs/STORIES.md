@@ -1,6 +1,6 @@
 # RFP - Enterprise Work Order Management System — Stories
 
-14 stories across 11 releases, walking-skeleton first:
+19 stories across 11 releases, walking-skeleton first:
 the earliest release proves the thinnest end-to-end path including the trust
 spine, and later releases stack features on top of something already working.
 
@@ -89,3 +89,8 @@ _No stories in this release._
 
 - **[STORY-009](stories/STORY-009.md)** — STORY-009 · Complete API integration with specific vendors _(waits on STORY-008)_
 - **[STORY-010](stories/STORY-010.md)** — STORY-010 · Operational readiness assessment _(waits on STORY-008)_
+- **[STORY-014](stories/STORY-014.md)** — App shell and work order console
+- **[STORY-015](stories/STORY-015.md)** — AI-first intake: the agent drafts, a person approves
+- **[STORY-016](stories/STORY-016.md)** — Map and heat map views for work order activity
+- **[STORY-017](stories/STORY-017.md)** — Administration console for roles, settings and the audit trail
+- **[STORY-018](stories/STORY-018.md)** — Integrations and operational readiness view

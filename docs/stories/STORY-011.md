@@ -8,7 +8,7 @@ As a system administrator, I want to ensure open database/API compatibility, so 
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-040** (Functional, must) — o Provide fully open database or API compatibility allowing Madison AI engines to index, crawl, and search internal work order data.
 
 ## How to build it
 

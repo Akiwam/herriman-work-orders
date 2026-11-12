@@ -8,7 +8,8 @@ As a project manager, I want to assess operational readiness, so that the system
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-052** (Functional, must) — • Time needs to be allotted for configuring, testing and data conversion
+- **REQ-053** (Functional, must) — • Software needs to be operational by July 1, 2027 Integrations
 
 ## How to build it
 

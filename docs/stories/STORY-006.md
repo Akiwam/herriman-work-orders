@@ -8,7 +8,7 @@ As a system administrator, I want the system to adapt to new and existing workfl
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-045** (Functional, must) — Does the City plan to initially implement new or existing workflows? Most exist and some will be new.
 
 ## How to build it
 

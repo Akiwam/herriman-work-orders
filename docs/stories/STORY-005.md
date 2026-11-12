@@ -8,7 +8,7 @@ As a city planner, I want to generate heat maps from work order data, so that I 
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-031** (Functional, must) — System must possess spatial analysis capabilities to generate heat maps based on work order types and geographical frequency.
 
 ## How to build it
 

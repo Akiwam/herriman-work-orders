@@ -2,7 +2,240 @@
   "schema_version": 2,
   "project_name": "RFP - Enterprise Work Order Management System",
   "descriptor": "Gov build: project name established; requirements pending curation. Releases and stories mirror the board.",
-  "requirements": [],
+  "requirements": [
+    {
+      "id": "REQ-001",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "Herriman City (the “City”) is requesting proposals (“Proposals”) from qualified companies (“Proposers”) to provide work order management system for the City (the “Services”).",
+      "fulfilled_by": [
+        "STORY-001"
+      ]
+    },
+    {
+      "id": "REQ-002",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "The City is requesting Proposal to provide a work order management system.",
+      "fulfilled_by": [
+        "STORY-001"
+      ]
+    },
+    {
+      "id": "REQ-022",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "Scope of Work & Functional Requirements Vendors must indicate their compliance and technical approach for each requirement outlined below.",
+      "fulfilled_by": [
+        "STORY-012"
+      ]
+    },
+    {
+      "id": "REQ-023",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "System must support bidirectional GIS integration to select assets and autofill multiple fields into a work order.",
+      "fulfilled_by": [
+        "STORY-001"
+      ]
+    },
+    {
+      "id": "REQ-026",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "System must actively read from and write to the primary GIS database.",
+      "fulfilled_by": [
+        "STORY-002"
+      ]
+    },
+    {
+      "id": "REQ-031",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "System must possess spatial analysis capabilities to generate heat maps based on work order types and geographical frequency.",
+      "fulfilled_by": [
+        "STORY-005"
+      ]
+    },
+    {
+      "id": "REQ-032",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "System must provide an additional freeform location text field for use if specific location information is missing from the GIS database.",
+      "fulfilled_by": [
+        "STORY-001"
+      ]
+    },
+    {
+      "id": "REQ-037",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "A public-facing reporting interface allowing citizens to submit requests or view public work order activities.",
+      "fulfilled_by": [
+        "STORY-003"
+      ]
+    },
+    {
+      "id": "REQ-038",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "Integration Requirements The proposed solution must natively interface or provide verified API connections to the following core systems:",
+      "fulfilled_by": [
+        "STORY-004"
+      ]
+    },
+    {
+      "id": "REQ-039",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "o Provide the ability to update, complete, and respond to Bluestakes data within the platform.",
+      "fulfilled_by": [
+        "STORY-013"
+      ]
+    },
+    {
+      "id": "REQ-040",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "o Provide fully open database or API compatibility allowing Madison AI engines to index, crawl, and search internal work order data.",
+      "fulfilled_by": [
+        "STORY-011"
+      ]
+    },
+    {
+      "id": "REQ-045",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "Does the City plan to initially implement new or existing workflows? Most exist and some will be new.",
+      "fulfilled_by": [
+        "STORY-006"
+      ]
+    },
+    {
+      "id": "REQ-047",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "• System Administrators – Users responsible for System Administration including System configuration, Audits, access control, User ID, and Authorizations etc.",
+      "fulfilled_by": [
+        "STORY-007",
+        "STORY-008"
+      ]
+    },
+    {
+      "id": "REQ-051",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "Selected vendors will be asked to give demonstrations of software.",
+      "fulfilled_by": [
+        "STORY-001"
+      ]
+    },
+    {
+      "id": "REQ-052",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "• Time needs to be allotted for configuring, testing and data conversion",
+      "fulfilled_by": [
+        "STORY-010"
+      ]
+    },
+    {
+      "id": "REQ-053",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "• Software needs to be operational by July 1, 2027 Integrations",
+      "fulfilled_by": [
+        "STORY-010"
+      ]
+    },
+    {
+      "id": "REQ-054",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "must",
+      "statement": "• API specifications and testing would need to be coordinated with the Specific Vendors",
+      "fulfilled_by": [
+        "STORY-004",
+        "STORY-009"
+      ]
+    },
+    {
+      "id": "REQ-055",
+      "kind": "FUNC",
+      "cluster": "Contract requirements",
+      "priority": "should",
+      "statement": "• Lama, Sprypoint and Madison ai have no current interface but should be API.",
+      "fulfilled_by": [
+        "STORY-009"
+      ]
+    },
+    {
+      "id": "REQ-056",
+      "kind": "FUNC",
+      "cluster": "Student Additions",
+      "priority": "should",
+      "statement": "As a system_user, I want one signed-in console with navigation that lists every work order with its status, assignee and location, so that the system I already built can be operated and demonstrated without a database client.",
+      "fulfilled_by": [
+        "STORY-014"
+      ]
+    },
+    {
+      "id": "REQ-057",
+      "kind": "FUNC",
+      "cluster": "Student Additions",
+      "priority": "should",
+      "statement": "As a system_user, I want citizen requests and Bluestakes records to arrive as a drafted work order that I approve, correct or reject, so that the agent does the data entry while a named person keeps the decision.",
+      "fulfilled_by": [
+        "STORY-015"
+      ]
+    },
+    {
+      "id": "REQ-058",
+      "kind": "FUNC",
+      "cluster": "Student Additions",
+      "priority": "should",
+      "statement": "As a City Planner, I want work orders plotted on a map and summarized as a heat map, so that I can see where work is concentrated instead of reading coordinates in a table.",
+      "fulfilled_by": [
+        "STORY-016"
+      ]
+    },
+    {
+      "id": "REQ-059",
+      "kind": "FUNC",
+      "cluster": "Student Additions",
+      "priority": "should",
+      "statement": "As a System Administrator, I want screens for user management, role permissions, system settings and the audit trail, so that the access controls already built can be operated without editing the database directly.",
+      "fulfilled_by": [
+        "STORY-017"
+      ]
+    },
+    {
+      "id": "REQ-060",
+      "kind": "FUNC",
+      "cluster": "Student Additions",
+      "priority": "should",
+      "statement": "As a Project Manager, I want one view showing each external connection, its last successful call and the operational readiness checks, so that I can show a reviewer the system is connected and ready rather than describing it.",
+      "fulfilled_by": [
+        "STORY-018"
+      ]
+    }
+  ],
   "releases": [
     {
       "key": "0cfff693-c382-43f3-8479-81054b337aa8",
@@ -149,9 +382,14 @@
       "week_start": 7,
       "story_ids": [
         "STORY-009",
-        "STORY-010"
+        "STORY-010",
+        "STORY-014",
+        "STORY-015",
+        "STORY-016",
+        "STORY-017",
+        "STORY-018"
       ],
-      "starts_on": "2026-11-15",
+      "starts_on": "2026-11-08",
       "ends_on": "2026-11-18",
       "is_demo_target": false
     }
@@ -461,6 +699,128 @@
       "task_guidance": "## Read this first\nYour workspace repo is still being set up, so the full requirements are not on disk yet.\nEverything you need for THIS task is inlined below — work from it directly.\nOnce the portal finishes provisioning, the full documents will be in your repo.\n\n## What we're building\nHerriman City Work Order Management System — A comprehensive work order management system for Herriman City, integrating GIS data, public reporting, and robust API capabilities.\nYou are in Release r0 · Initial Setup and Core Functionality (weeks 1–4).\nThis release lands when: Demonstrate creation and management of work orders with GIS autofill and freeform location fields.\n\n## Your task\nSTORY-013 — Update, complete, and respond to Bluestakes data\nAs a system user, I want to update, complete, and respond to Bluestakes data, so that I can manage and track data changes effectively.\nOwning agent(s): system_user\n\n## The requirement this satisfies\nREQ-039 (FUNC, must) — \"The system must provide the ability to update, complete, and respond to Bluestakes data within the platform.\"\n\n## Guardrails that apply to the WHOLE project\nThese hold regardless of which story you are on. If this task would break one,\nstop and say so rather than working around it.\n\n- The system must allow for successful creation, updating, and completion of work orders, as evidenced by user testing and demonstration.\n\n## What this project is trying to move\n- The software must be operational by July 1, 2027.\n\nYou are not being asked to hit these today. Know them so your choices point at them.\n\n## How we build here\nImplement endpoints for updating and completing Bluestakes data. Ensure audit logging for all changes. Use the existing Bluestakes data schema for consistency.\n\nWalking skeleton first, then harden. Small, testable, reversible steps. Every external\ncall gets an explicit timeout and capped retries. Every side effect is idempotent —\nrunning it twice must not double-charge, double-email, or double-create.\n\n## Where this sits in the build\nSpecified before this one in the plan (no declared dependency) — reuse it, do not rebuild it:\n- STORY-011 · Ensure open database/API compatibility for Madison AI engines\n- STORY-012 · Vendor compliance and technical approach documentation\n\nThis is the last story in the plan.\n\n## Failure paths you must handle\n- Data entry not found\n- Invalid data format\n- Unauthorized access attempt\n\n## Acceptance — your stop condition\n- Given a Bluestakes data entry, when I update the data, then the system reflects the changes accurately.\n- Given a Bluestakes data entry, when I mark it as complete, then the system updates its status to complete.\n- Trust: Given a Bluestakes data entry update, when the update is made, then the system logs the change in the audit trail.\n\nWhen every line above passes, the task is done — stop the build loop and show me the demo.\n\n## Stop and ask me if\n- A guardrail above would have to bend to finish this.\n- The requirement turns out to be wrong, or impossible as written. Say so — do not\n  silently build something adjacent that passes the tests.\n- You need a credential, an account, or access to an external system that you do not have.\n- The acceptance criteria cannot be tested as written.\n- You are about to change a file outside this story to make it pass.\n\n## Definition of done\n- Tests cover the happy path and at least one failure path above.\n- No secrets in code, commits, or logs.\n- The commit message names the story: `STORY-013: <what you did>`. The platform reads that to track your progress.\n- A junior developer can read the change and understand why it is correct.\n- When you are finished, tell me your confidence as a percentage that this story is\n  complete and correct, and what would raise it.\n\n## When you finish: record what this story taught the project\nBefore you start, read `.colaberry/plan.json` and `docs/stories/STORY-000.md` (the section\n\"What the platform understands about this project\"). That is the current truth. Note anything\nthis story adds to it: a system it turns out to talk to, a decision you had to make, a limit you\ndiscovered, a role or approval point that appeared.\n\nWhen the acceptance criteria pass, write `.colaberry/enrichment/STORY-013.json` with exactly this shape:\n\n```\n{\n  \"schemaVersion\": \"1\",\n  \"projectId\": \"062d6c26-d24a-4c98-a59e-7e1a4bb17890\",\n  \"storyId\": \"STORY-013\",\n  \"projectTruthBaseRevision\": 0,\n  \"observedAt\": \"<ISO timestamp>\",\n  \"sourceCommitSha\": \"<sha of your last commit, or null>\",\n  \"factProposals\": [\n    {\n      \"dimension\": \"integrations\",\n      \"value\": \"Reads open tickets from the Zendesk API.\",\n      \"evidence\": \"src/zendesk/client.ts\"\n    }\n  ],\n  \"decisions\": [\n    {\n      \"statement\": \"Poll every 5 minutes rather than subscribe to webhooks.\",\n      \"rationale\": \"no webhook access in the sandbox\",\n      \"evidence\": \"src/poll.ts\"\n    }\n  ],\n  \"limitations\": [\n    {\n      \"statement\": \"Attachments over 10MB are skipped.\",\n      \"evidence\": \"src/zendesk/client.ts#L40\"\n    }\n  ],\n  \"demonstrationEvidence\": [\n    {\n      \"kind\": \"test\",\n      \"ref\": \"zendesk.client.test.ts\"\n    }\n  ],\n  \"measurementEvents\": []\n}\n```\n\nRules for that file:\n- Only what this story's work actually shows. Each entry names the file, commit or test that\n  proves it. No evidence, no entry.\n- `dimension` is one of: problem, desired_outcome, actors, current_workflow, inputs, outputs,\n  data, systems, integrations, pain_points, exceptions, approval_points, security_context,\n  ai_opportunities, human_only_decisions, assumptions, unknowns, constraints,\n  success_definition, delivery_profile.\n- Never claim a business result. What the business wanted, what hurt before, what \"success\"\n  means: those are the student's statements, not the build's, and the platform refuses them\n  from this file.\n- If you found something that contradicts the truth, still write it: the platform files it as\n  a question for the student rather than replacing what they confirmed.\n- `projectTruthBaseRevision` is `truth_revision` from `.colaberry/manifest.json`, or 0 if absent.\n- Commit it with the story. The platform reads it on push; pushing it twice changes nothing.\n\n## How I want you to work\nWork as a paced co-pilot. Move one step at a time: propose the next change, wait for me\nto confirm, then make it. Never batch several edits together. After each step, tell me\nwhat you did and what the next step is.\n\n## Your workspace repo\nNot provisioned yet. Finish repo setup in the portal to get a repo, your requirements on disk, and progress tracking. That repo is public, so keep secrets out of it.\n\nBegin.",
       "due_on": "2026-10-30",
       "due_baseline_on": "2026-10-30"
+    },
+    {
+      "id": "STORY-014",
+      "title": "App shell and work order console",
+      "release": "r4",
+      "fulfills": [
+        "REQ-056"
+      ],
+      "narrative": "As a system_user, I want one signed-in console with navigation that lists every work order with its status, assignee and location, so that the system I already built can be operated and demonstrated without a database client.",
+      "acceptance": [
+        "Given work orders exist, when the console loads, then each row shows status, assignee and location.",
+        "Given a work order is opened, when the detail view renders, then its full history and GIS record appear on one screen.",
+        "Given no work orders exist, when the console loads, then an empty state is shown rather than an error.",
+        "Given the console is deployed, when it is opened at 1440x900, then every screen renders without a horizontal scrollbar so it can be captured for the proposal exhibit.",
+        "Trust: every action taken in the console writes to the same audit trail as the API, recording who did it and when."
+      ],
+      "owner_agent": "system_user",
+      "failure_paths": [
+        "The GIS service is unavailable when the detail view loads",
+        "The session expires while a work order is being edited",
+        "The work order list grows past one page"
+      ],
+      "task_guidance": "Build the shell and the console only. Navigation must reach every screen in the later stories, even if those screens are still placeholders. Do not rebuild the work order API that STORY-001 already delivers.",
+      "due_on": "2026-11-08",
+      "due_baseline_on": "2026-11-08"
+    },
+    {
+      "id": "STORY-015",
+      "title": "AI-first intake: the agent drafts, a person approves",
+      "release": "r4",
+      "fulfills": [
+        "REQ-057"
+      ],
+      "narrative": "As a system_user, I want citizen requests and Bluestakes records to arrive as a drafted work order that I approve, correct or reject, so that the agent does the data entry while a named person keeps the decision.",
+      "acceptance": [
+        "Given an incoming citizen request or Bluestakes record, when it is received, then a draft work order is proposed with its fields already filled in.",
+        "Given a proposed draft, when I approve it, then the work order is created and the record names who approved it.",
+        "Given a proposed draft, when I edit or reject it, then my version is what is saved and the original proposal is retained.",
+        "Given the approval queue, when it renders, then each item states who performs the work and who must approve it.",
+        "Trust: no work order reaches a live queue without a named person approving it, and the screen shows who that was."
+      ],
+      "owner_agent": "system_user",
+      "failure_paths": [
+        "The agent proposes a draft with a field it could not determine",
+        "Two reviewers approve the same draft at the same time",
+        "An approval is submitted after the source record changed"
+      ],
+      "task_guidance": "This is the screen that makes the human and AI split visible. Reuse the citizen request path from STORY-003 and the Bluestakes path from STORY-013 as the sources; this story adds the proposal, the queue and the approval record, not new ingestion.",
+      "due_on": "2026-11-08",
+      "due_baseline_on": "2026-11-08"
+    },
+    {
+      "id": "STORY-016",
+      "title": "Map and heat map views for work order activity",
+      "release": "r4",
+      "fulfills": [
+        "REQ-058"
+      ],
+      "narrative": "As a City Planner, I want work orders plotted on a map and summarized as a heat map, so that I can see where work is concentrated instead of reading coordinates in a table.",
+      "acceptance": [
+        "Given work orders with locations, when the map loads, then each one is plotted at its GIS coordinates.",
+        "Given a date range is selected, when the heat map renders, then it reflects only work orders within that range.",
+        "Given the GIS source is unavailable, when the map loads, then it says so and still lists the work orders.",
+        "Trust: the map reads the same GIS record as the API, so what is displayed and what is stored cannot disagree."
+      ],
+      "owner_agent": "City Planner",
+      "failure_paths": [
+        "A work order has no coordinates recorded",
+        "The GIS source times out",
+        "The selected date range returns no work orders"
+      ],
+      "task_guidance": "STORY-002 already reads and writes the GIS database and STORY-005 already generates heat map data. This story is the view over both, not a second copy of either.",
+      "due_on": "2026-11-08",
+      "due_baseline_on": "2026-11-08"
+    },
+    {
+      "id": "STORY-017",
+      "title": "Administration console for roles, settings and the audit trail",
+      "release": "r4",
+      "fulfills": [
+        "REQ-059"
+      ],
+      "narrative": "As a System Administrator, I want screens for user management, role permissions, system settings and the audit trail, so that the access controls already built can be operated without editing the database directly.",
+      "acceptance": [
+        "Given I am an administrator, when I open the console, then I can view and change user roles and system settings.",
+        "Given I am not an administrator, when I open the console, then I am refused and the refusal is recorded.",
+        "Given any change is made, when I open the audit trail, then that change appears with actor, timestamp and previous value.",
+        "Trust: the console enforces the same role checks as the API, so no screen can grant what the API would refuse."
+      ],
+      "owner_agent": "System Administrator",
+      "failure_paths": [
+        "An administrator removes their own last administrator role",
+        "A role change is attempted on a user who no longer exists",
+        "The audit trail grows past one page"
+      ],
+      "task_guidance": "STORY-007 and STORY-008 already implement role based access, audit trails and settings. This story is the operator interface over them. The refusal path matters as much as the happy path, so build and test it.",
+      "due_on": "2026-11-08",
+      "due_baseline_on": "2026-11-08"
+    },
+    {
+      "id": "STORY-018",
+      "title": "Integrations and operational readiness view",
+      "release": "r4",
+      "fulfills": [
+        "REQ-060"
+      ],
+      "narrative": "As a Project Manager, I want one view showing each external connection, its last successful call and the operational readiness checks, so that I can show a reviewer the system is connected and ready rather than describing it.",
+      "acceptance": [
+        "Given configured integrations, when the view loads, then each shows its vendor, status and the time of its last successful call.",
+        "Given an integration has failed, when the view loads, then it is flagged with the error class and the time it began failing.",
+        "Given the readiness checks, when the view loads, then each check shows pass or fail with the evidence behind it.",
+        "Trust: every status shown is read from a real call result, never from a stored flag that nothing updates."
+      ],
+      "owner_agent": "Project Manager",
+      "failure_paths": [
+        "An integration has never been called, so it has no last successful call",
+        "A vendor endpoint returns success with an unexpected payload shape",
+        "A readiness check has no evidence recorded"
+      ],
+      "task_guidance": "STORY-004, STORY-009, STORY-011 and STORY-010 already built the connections and the readiness assessment. This story surfaces them on one screen so a reviewer can see them. A status that is hardcoded or cached without refresh does not satisfy the trust line.",
+      "due_on": "2026-11-08",
+      "due_baseline_on": "2026-11-08"
     }
   ],
   "agents": [],
@@ -468,46 +828,46 @@
     "name": "RFP - Enterprise Work Order Management System",
     "descriptor": "Gov build: project name established; requirements pending curation. Releases and stories mirror the board.",
     "repo_url": "https://github.com/Akiwam/herriman-work-orders",
-    "plan_version": 2,
-    "plan_sha256": "615c96576828dfe684e4cd2d3fe834f639109c7d25d544caa9d5062735927a1a"
+    "plan_version": 3,
+    "plan_sha256": "d01a3ff6ec90c9aaeac4046ceb34a5629bc99e5b4d614f4a4e61e09693c64792"
   },
   "schedule": {
     "build_start": "2026-10-27",
     "build_end": "2026-11-18",
-    "demo_day": "2026-11-18",
+    "demo_day": "2026-09-27",
     "build_weeks": 3,
     "demo_release_key": null,
     "roadmap_release_keys": [],
     "prep": [
       {
-        "key": "PREP-5",
-        "title": "Record Your Final Showcase",
-        "due_on": "2026-11-18"
-      },
-      {
-        "key": "PREP-6",
-        "title": "Present at Demo Day",
-        "due_on": "2026-11-18"
-      },
-      {
         "key": "PREP-1",
         "title": "Record Your Project Introduction",
-        "due_on": "2026-11-18"
+        "due_on": "2026-09-21"
       },
       {
         "key": "PREP-2",
         "title": "Record Your Working-System Demo",
-        "due_on": "2026-11-18"
+        "due_on": "2026-09-22"
       },
       {
         "key": "PREP-3",
         "title": "Record Your AI Visual Presentation",
-        "due_on": "2026-11-18"
+        "due_on": "2026-09-24"
       },
       {
         "key": "PREP-4",
         "title": "Record Your Stakeholder Update",
-        "due_on": "2026-11-18"
+        "due_on": "2026-09-25"
+      },
+      {
+        "key": "PREP-5",
+        "title": "Record Your Final Showcase",
+        "due_on": "2026-09-26"
+      },
+      {
+        "key": "PREP-6",
+        "title": "Present at Demo Day",
+        "due_on": "2026-09-27"
       }
     ]
   },
@@ -522,15 +882,21 @@
       "city planner",
       "system administrator",
       "project manager",
-      "vendor"
+      "vendor",
+      "system_user",
+      "City Planner",
+      "System Administrator",
+      "Project Manager"
     ],
     "counts": {
-      "requirements_total": 0,
-      "requirements_by_kind": {},
-      "stories_total": 14,
+      "requirements_total": 23,
+      "requirements_by_kind": {
+        "FUNC": 23
+      },
+      "stories_total": 19,
       "releases_total": 11,
       "agents_total": 0,
-      "failure_paths_total": 0,
+      "failure_paths_total": 15,
       "agents_by_autonomy": {}
     }
   }

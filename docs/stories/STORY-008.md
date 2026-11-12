@@ -8,7 +8,7 @@ As a system administrator, I want to configure system settings and manage users,
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-047** (Functional, must) — • System Administrators – Users responsible for System Administration including System configuration, Audits, access control, User ID, and Authorizations etc.
 
 ## How to build it
 

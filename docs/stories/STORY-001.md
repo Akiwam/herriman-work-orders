@@ -8,7 +8,11 @@ As a system user, I want to create, manage, and audit work orders with GIS integ
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-001** (Functional, must) — Herriman City (the “City”) is requesting proposals (“Proposals”) from qualified companies (“Proposers”) to provide work order management system for the City (the “Services”).
+- **REQ-002** (Functional, must) — The City is requesting Proposal to provide a work order management system.
+- **REQ-023** (Functional, must) — System must support bidirectional GIS integration to select assets and autofill multiple fields into a work order.
+- **REQ-032** (Functional, must) — System must provide an additional freeform location text field for use if specific location information is missing from the GIS database.
+- **REQ-051** (Functional, must) — Selected vendors will be asked to give demonstrations of software.
 
 ## How to build it
 

@@ -8,7 +8,7 @@ As a system user, I want to update, complete, and respond to Bluestakes data, so
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-039** (Functional, must) — o Provide the ability to update, complete, and respond to Bluestakes data within the platform.
 
 ## How to build it
 

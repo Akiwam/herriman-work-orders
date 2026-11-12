@@ -8,7 +8,7 @@ As a system, I want to read from and write to the GIS database, so that work ord
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-026** (Functional, must) — System must actively read from and write to the primary GIS database.
 
 ## How to build it
 

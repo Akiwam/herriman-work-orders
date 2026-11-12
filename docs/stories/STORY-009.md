@@ -8,7 +8,8 @@ As a system, I want to complete API integration with specific vendors, so that d
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-054** (Functional, must) — • API specifications and testing would need to be coordinated with the Specific Vendors
+- **REQ-055** (Functional, should) — • Lama, Sprypoint and Madison ai have no current interface but should be API.
 
 ## How to build it
 

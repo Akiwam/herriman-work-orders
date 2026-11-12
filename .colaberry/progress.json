@@ -2,14 +2,14 @@
   "schema_version": 2,
   "project": "RFP - Enterprise Work Order Management System",
   "totals": {
-    "stories_total": 14,
-    "stories_verified": 12,
+    "stories_total": 19,
+    "stories_verified": 14,
     "stories_submitted": 0,
-    "stories_in_progress": 2,
-    "stories_not_started": 0,
-    "criteria_total": 41,
-    "criteria_passed": 35,
-    "points_awarded": 684
+    "stories_in_progress": 4,
+    "stories_not_started": 1,
+    "criteria_total": 66,
+    "criteria_passed": 44,
+    "points_awarded": 798
   },
   "stories": [
     {
@@ -476,12 +476,12 @@
       "updated_at": null,
       "verification": {
         "state": "verified",
-        "criteria_passed": 0,
-        "criteria_total": 0,
+        "criteria_passed": 3,
+        "criteria_total": 3,
         "verified_at": "2026-10-31T04:05:13.444Z",
         "commit_sha": "37f5693897742e2f821d7ba96d0afb68fb52c3f3",
         "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/37f5693897742e2f821d7ba96d0afb68fb52c3f3",
-        "commit_at": null,
+        "commit_at": "2026-10-31T04:04:39Z",
         "points_awarded": 57,
         "outstanding": []
       }
@@ -529,19 +529,15 @@
       "notes": "One-way vendor feeds per the RFP (REQ-042: LAMA, SpryPoint, Madison AI one-way; REQ-055: no current interface, should be API): GET /api/v1/vendors/{vendor}/feed, each vendor with its own key and its own versioned contract - Madison AI the full agreed read format, Lama and SpryPoint a PROPOSED minimal set with no free text or names. Records are checked against the contract before sending (mismatch -> 500, nothing sent); cursor always returned so a vendor resumes with only what changed. Every request (ok, denied, invalid, mismatch, error) is in vendor_exchange_log with times, parameters and request id; if it cannot be logged nothing is sent. REQ-054: npm run vendor:check conformance kit (timeouts, capped retries, no retry on refused keys) and a per-vendor coordination tracker (contract shared, fields confirmed, sandbox tested, signed off; in order, audited, people only). HONEST STATE: no real vendor has connected; the Lama and SpryPoint field lists await vendor confirmation; SCADA (REQ-042) not built. Run `npm run demo:vendors`.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given a vendor API, when integrated, then data exchange is seamless.",
-          "Given a data request, when via API, then it is processed correctly.",
-          "Trust: All vendor API interactions are logged with timestamps and request details."
-        ]
+        "verified_at": "2026-11-07T02:34:53.441Z",
+        "commit_sha": "0ad942d02f230b36711cd50f2fec5d8d99f452a0",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/0ad942d02f230b36711cd50f2fec5d8d99f452a0",
+        "commit_at": "2026-11-07T02:34:16Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -585,19 +581,15 @@
       "notes": "Readiness assessment against the July 1, 2027 go-live date: 11 automatic checks (settings valid, an administrator who can sign in, workflows completable, audit trail writable, a create/update/complete smoke test on a throwaway database, GIS and Blue Stakes queues clear, GIS and Blue Stakes live with a recent successful call, Lama/Sprypoint/Madison AI each with a recent successful exchange) and 10 manual items for configuration, testing and data conversion that a project manager records (not applicable needs a reason). Verdict ready only if every item passes; a crashing check counts as failed. Each assessment is kept with reviewer, times and every result and audited; if it cannot be recorded, no result (503). readiness:review, personal key, Idempotency-Key. HONEST STATE: today's real system is NOT READY (stand-in GIS and Blue Stakes, no vendor integrations - STORY-009 is waiting on vendor coordination - and no manual sign-offs); 'ready' is shown with a fully prepared example. Run `npm run demo:readiness`.",
       "updated_at": null,
       "verification": {
-        "state": "in_progress",
-        "criteria_passed": 0,
+        "state": "verified",
+        "criteria_passed": 3,
         "criteria_total": 3,
-        "verified_at": null,
-        "commit_sha": null,
-        "commit_url": null,
-        "commit_at": null,
-        "points_awarded": null,
-        "outstanding": [
-          "Given system configuration, when assessed, then it meets operational standards.",
-          "Given a readiness checklist, when completed, then the system is ready for launch.",
-          "Trust: All readiness assessments are logged with timestamps and reviewer details."
-        ]
+        "verified_at": "2026-11-03T05:08:32.364Z",
+        "commit_sha": "72d2026a4cf51157fe9a91e85cac7fa247a721de",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/72d2026a4cf51157fe9a91e85cac7fa247a721de",
+        "commit_at": "2026-11-03T05:07:56Z",
+        "points_awarded": 57,
+        "outstanding": []
       }
     },
     {
@@ -744,6 +736,231 @@
         "commit_at": "2026-10-30T05:07:18Z",
         "points_awarded": 57,
         "outstanding": []
+      }
+    },
+    {
+      "id": "STORY-014",
+      "release": "r4",
+      "acceptance_total": 5,
+      "criteria": [
+        {
+          "text": "Given work orders exist, when the console loads, then each row shows status, assignee and location.",
+          "passed": false
+        },
+        {
+          "text": "Given a work order is opened, when the detail view renders, then its full history and GIS record appear on one screen.",
+          "passed": false
+        },
+        {
+          "text": "Given no work orders exist, when the console loads, then an empty state is shown rather than an error.",
+          "passed": false
+        },
+        {
+          "text": "Given the console is deployed, when it is opened at 1440x900, then every screen renders without a horizontal scrollbar so it can be captured for the proposal exhibit.",
+          "passed": false
+        },
+        {
+          "text": "Trust: every action taken in the console writes to the same audit trail as the API, recording who did it and when.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 5,
+        "verified_at": null,
+        "commit_sha": "b1e7b563e1bede2806b6ffd50cbce52d265a815e",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/b1e7b563e1bede2806b6ffd50cbce52d265a815e",
+        "commit_at": "2026-11-11T01:19:46Z",
+        "points_awarded": null,
+        "outstanding": [
+          "Given work orders exist, when the console loads, then each row shows status, assignee and location.",
+          "Given a work order is opened, when the detail view renders, then its full history and GIS record appear on one screen.",
+          "Given no work orders exist, when the console loads, then an empty state is shown rather than an error.",
+          "Given the console is deployed, when it is opened at 1440x900, then every screen renders without a horizontal scrollbar so it can be captured for the proposal exhibit.",
+          "Trust: every action taken in the console writes to the same audit trail as the API, recording who did it and when."
+        ]
+      }
+    },
+    {
+      "id": "STORY-015",
+      "release": "r4",
+      "acceptance_total": 5,
+      "criteria": [
+        {
+          "text": "Given an incoming citizen request or Bluestakes record, when it is received, then a draft work order is proposed with its fields already filled in.",
+          "passed": false
+        },
+        {
+          "text": "Given a proposed draft, when I approve it, then the work order is created and the record names who approved it.",
+          "passed": false
+        },
+        {
+          "text": "Given a proposed draft, when I edit or reject it, then my version is what is saved and the original proposal is retained.",
+          "passed": false
+        },
+        {
+          "text": "Given the approval queue, when it renders, then each item states who performs the work and who must approve it.",
+          "passed": false
+        },
+        {
+          "text": "Trust: no work order reaches a live queue without a named person approving it, and the screen shows who that was.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 5,
+        "verified_at": null,
+        "commit_sha": "27ca901557063d073a70266c7d6307a7dfd9f318",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/27ca901557063d073a70266c7d6307a7dfd9f318",
+        "commit_at": "2026-11-11T01:51:02Z",
+        "points_awarded": null,
+        "outstanding": [
+          "Given an incoming citizen request or Bluestakes record, when it is received, then a draft work order is proposed with its fields already filled in.",
+          "Given a proposed draft, when I approve it, then the work order is created and the record names who approved it.",
+          "Given a proposed draft, when I edit or reject it, then my version is what is saved and the original proposal is retained.",
+          "Given the approval queue, when it renders, then each item states who performs the work and who must approve it.",
+          "Trust: no work order reaches a live queue without a named person approving it, and the screen shows who that was."
+        ]
+      }
+    },
+    {
+      "id": "STORY-016",
+      "release": "r4",
+      "acceptance_total": 4,
+      "criteria": [
+        {
+          "text": "Given work orders with locations, when the map loads, then each one is plotted at its GIS coordinates.",
+          "passed": false
+        },
+        {
+          "text": "Given a date range is selected, when the heat map renders, then it reflects only work orders within that range.",
+          "passed": false
+        },
+        {
+          "text": "Given the GIS source is unavailable, when the map loads, then it says so and still lists the work orders.",
+          "passed": false
+        },
+        {
+          "text": "Trust: the map reads the same GIS record as the API, so what is displayed and what is stored cannot disagree.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 4,
+        "verified_at": null,
+        "commit_sha": "1a742c23a7a051a74a7a3e0d35766dc57240aa46",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/1a742c23a7a051a74a7a3e0d35766dc57240aa46",
+        "commit_at": "2026-11-11T02:07:03Z",
+        "points_awarded": null,
+        "outstanding": [
+          "Given work orders with locations, when the map loads, then each one is plotted at its GIS coordinates.",
+          "Given a date range is selected, when the heat map renders, then it reflects only work orders within that range.",
+          "Given the GIS source is unavailable, when the map loads, then it says so and still lists the work orders.",
+          "Trust: the map reads the same GIS record as the API, so what is displayed and what is stored cannot disagree."
+        ]
+      }
+    },
+    {
+      "id": "STORY-017",
+      "release": "r4",
+      "acceptance_total": 4,
+      "criteria": [
+        {
+          "text": "Given I am an administrator, when I open the console, then I can view and change user roles and system settings.",
+          "passed": false
+        },
+        {
+          "text": "Given I am not an administrator, when I open the console, then I am refused and the refusal is recorded.",
+          "passed": false
+        },
+        {
+          "text": "Given any change is made, when I open the audit trail, then that change appears with actor, timestamp and previous value.",
+          "passed": false
+        },
+        {
+          "text": "Trust: the console enforces the same role checks as the API, so no screen can grant what the API would refuse.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "in_progress",
+        "criteria_passed": 0,
+        "criteria_total": 4,
+        "verified_at": null,
+        "commit_sha": "b1656bcb98e3057599ed9c405129b6719398faac",
+        "commit_url": "https://github.com/Akiwam/herriman-work-orders/commit/b1656bcb98e3057599ed9c405129b6719398faac",
+        "commit_at": "2026-11-11T02:17:24Z",
+        "points_awarded": null,
+        "outstanding": [
+          "Given I am an administrator, when I open the console, then I can view and change user roles and system settings.",
+          "Given I am not an administrator, when I open the console, then I am refused and the refusal is recorded.",
+          "Given any change is made, when I open the audit trail, then that change appears with actor, timestamp and previous value.",
+          "Trust: the console enforces the same role checks as the API, so no screen can grant what the API would refuse."
+        ]
+      }
+    },
+    {
+      "id": "STORY-018",
+      "release": "r4",
+      "acceptance_total": 4,
+      "criteria": [
+        {
+          "text": "Given configured integrations, when the view loads, then each shows its vendor, status and the time of its last successful call.",
+          "passed": false
+        },
+        {
+          "text": "Given an integration has failed, when the view loads, then it is flagged with the error class and the time it began failing.",
+          "passed": false
+        },
+        {
+          "text": "Given the readiness checks, when the view loads, then each check shows pass or fail with the evidence behind it.",
+          "passed": false
+        },
+        {
+          "text": "Trust: every status shown is read from a real call result, never from a stored flag that nothing updates.",
+          "passed": false
+        }
+      ],
+      "files_touched": [],
+      "tests_added": [],
+      "notes": null,
+      "updated_at": null,
+      "verification": {
+        "state": "not_started",
+        "criteria_passed": 0,
+        "criteria_total": 4,
+        "verified_at": null,
+        "commit_sha": null,
+        "commit_url": null,
+        "commit_at": null,
+        "points_awarded": null,
+        "outstanding": [
+          "Given configured integrations, when the view loads, then each shows its vendor, status and the time of its last successful call.",
+          "Given an integration has failed, when the view loads, then it is flagged with the error class and the time it began failing.",
+          "Given the readiness checks, when the view loads, then each check shows pass or fail with the evidence behind it.",
+          "Trust: every status shown is read from a real call result, never from a stored flag that nothing updates."
+        ]
       }
     }
   ]

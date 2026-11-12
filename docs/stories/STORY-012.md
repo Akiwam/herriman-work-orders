@@ -8,7 +8,7 @@ As a vendor, I want to document compliance and technical approaches for each req
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-022** (Functional, must) — Scope of Work & Functional Requirements Vendors must indicate their compliance and technical approach for each requirement outlined below.
 
 ## How to build it
 

@@ -8,7 +8,8 @@ As a system, I want to establish basic API connections, so that external systems
 
 ## The requirement this satisfies
 
-_No requirement linked._
+- **REQ-038** (Functional, must) — Integration Requirements The proposed solution must natively interface or provide verified API connections to the following core systems:
+- **REQ-054** (Functional, must) — • API specifications and testing would need to be coordinated with the Specific Vendors
 
 ## How to build it
 
