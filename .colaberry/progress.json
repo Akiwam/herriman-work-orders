@@ -815,28 +815,55 @@
       "criteria": [
         {
           "text": "Given an incoming citizen request or Bluestakes record, when it is received, then a draft work order is proposed with its fields already filled in.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a proposed draft, when I approve it, then the work order is created and the record names who approved it.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a proposed draft, when I edit or reject it, then my version is what is saved and the original proposal is retained.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given the approval queue, when it renders, then each item states who performs the work and who must approve it.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: no work order reaches a live queue without a named person approving it, and the screen shows who that was.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/intake.js",
+        "server/intakeDemo.js",
+        "server/api/intakeRoutes.js",
+        "server/publicRequests.js",
+        "server/access.js",
+        "server/db.js",
+        "server/consoleViews.js",
+        "server/console/app.js",
+        "server/console/styles.css",
+        "server/consoleLayoutCheck.js",
+        "server/api/server.js",
+        "server/api/openapi.js",
+        "server/public/demo.js",
+        "server/public/serve.js",
+        "package.json",
+        "tests/helpers/intake.js",
+        "tests/consolePages.test.js",
+        "tests/heatMaps.test.js",
+        "tests/publicHttp.test.js",
+        "tests/publicRequests.test.js",
+        "knowledge/notes.json",
+        "knowledge/data-model.json"
+      ],
+      "tests_added": [
+        "tests/intakeDrafts.test.js",
+        "tests/intakeReview.test.js",
+        "tests/intakeHttp.test.js"
+      ],
+      "notes": "AI-first intake: citizen requests and Blue Stakes tickets arrive as drafts from the intake agent (a labelled rule-based stand-in until an AI model is provided); a named person with intake:approve approves, corrects or rejects each one in the console (#/intake). Criteria: a request or Blue Stakes record arrives as a filled-in draft (tests/intakeDrafts.test.js:27, :42); approving creates the work order and names the approver (tests/intakeReview.test.js:42, tests/intakeHttp.test.js:57); an edit or rejection saves my version and keeps the original proposal (intakeReview.test.js:56, :68); the queue states who performs the work and who must approve (intakeHttp.test.js:43); Trust: nothing reaches the live queue without a named person, and the screen shows who (intakeReview.test.js:142, intakeHttp.test.js:125). Failure paths: undetermined field (intakeReview.test.js:80), two approvers at once (:92), source changed (:115). Built in commit 27ca901. Run `npm test` and `npm run demo:intake`.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",
