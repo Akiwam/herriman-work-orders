@@ -138,4 +138,13 @@ table.admin-users tbody tr, table.admin-roles tbody tr, table.admin-settings tbo
 .r-name { width: 20%; } .r-desc { width: 35%; } .r-perms { width: 45%; }
 .s-name { width: 38%; } .s-value { width: 12%; } .s-default { width: 14%; } .s-changed { width: 18%; } .s-actions { width: 18%; }
 .a-when { width: 15%; } .a-actor { width: 19%; } .a-what { width: 22%; } .a-prev { width: 22%; } .a-new { width: 22%; }
+
+/* Integrations and readiness (STORY-018) */
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.grow { flex: 1 1 0; min-width: 0; margin: 0; }
+table.integrations, table.readiness { margin-bottom: 22px; }
+table.integrations td, table.readiness td { white-space: normal; vertical-align: top; overflow-wrap: anywhere; }
+table.integrations tbody tr, table.readiness tbody tr { cursor: default; }
+.i-vendor { width: 24%; } .i-mode { width: 15%; } .i-status { width: 10%; } .i-last { width: 13%; } .i-detail { width: 26%; } .i-action { width: 12%; }
+.r-check { width: 34%; } .r-result { width: 10%; } .r-evidence { width: 40%; } .r-when { width: 16%; }
 code.key-once { display: block; margin-top: 8px; padding: 8px 10px; background: var(--panel); color: var(--ink); border-radius: 8px; overflow-wrap: anywhere; font-size: .85rem; }

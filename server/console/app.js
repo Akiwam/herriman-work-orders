@@ -16,8 +16,7 @@
     { route: 'intake', label: 'AI intake' },
     { route: 'map', label: 'Map' },
     { route: 'admin', label: 'Administration' },
-    { route: 'integrations', label: 'Integrations & readiness', story: 'STORY-018', soon: 'Vendor feeds, GIS and Blue Stakes, and the go-live readiness assessment.',
-      basis: 'Everything it will show already exists in the system\'s API.' },
+    { route: 'integrations', label: 'Integrations & readiness' },
   ];
   const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 
@@ -718,11 +717,93 @@
     document.getElementById('a-first')?.addEventListener('click', () => go({ ...filters, cursor: '' }));
   }
 
-  // ---------- screens still to come ----------
-  function renderPlaceholder(route) {
-    const n = NAV.find((x) => x.route === route);
-    mount(route, `<div class="placeholder card"><p class="story">${esc(n.story)} · coming next</p><h1>${esc(n.label)}</h1>
-      <p>${esc(n.soon)}</p><p class="muted">This screen will be built in ${esc(n.story)}. ${esc(n.basis)}</p></div>`);
+  // ---------- integrations and operational readiness (STORY-018) ----------
+  // One screen a reviewer can be shown: each external connection with its status and last successful
+  // call, and the go-live readiness checks with the evidence behind each. The API works every status out
+  // from the call records when the screen loads; nothing on this screen is a stored flag.
+  const STATUS_PILL = { healthy: ['completed', 'healthy'], failing: ['bad', 'failing'], never_called: ['open', 'never called'] };
+  const ERROR_CLASS = {
+    timeout: 'timed out', unauthorized: 'credential refused', error: 'call failed', unexpected_payload: 'answered, but with an unexpected shape',
+    mismatch: 'records broke the vendor contract', denied: 'access refused', invalid: 'bad request',
+  };
+  const CONNECTION = { stand_in: 'Stand-in, not the real service', live: 'Live service', 'not declared': 'Not declared' };
+  const RESULT_PILL = { pass: ['completed', 'pass'], fail: ['bad', 'fail'], no_evidence: ['attention', 'no evidence'], not_run: ['open', 'not run'] };
+
+  function integrationRow(i) {
+    const [cls, label] = STATUS_PILL[i.status] ?? ['open', i.status];
+    let details = `<span class="muted">No call on record yet, so there is no last successful call.</span>`;
+    if (i.status === 'failing') {
+      details = `<strong>${esc(ERROR_CLASS[i.error_class] ?? i.error_class)}</strong> <span class="muted">(${esc(i.error_class)})</span>
+        <br>Failing since ${esc(when(i.failing_since))}${i.error ? `<br><span class="muted">${esc(i.error)}</span>` : ''}`;
+    } else if (i.status === 'healthy') {
+      details = `Last call ${esc(when(i.last_call_at))}<br><span class="muted">${esc(i.calls_on_record)} call(s) on record</span>`;
+    }
+    return `<tr>
+      <td><strong>${esc(i.vendor)}</strong><br><span class="muted">${esc(i.purpose)}</span></td>
+      <td>${esc(CONNECTION[i.connection] ?? i.connection)}</td>
+      <td><span class="pill ${cls}">${esc(label)}</span></td>
+      <td>${i.last_success_at ? esc(when(i.last_success_at)) : '<span class="muted">never</span>'}</td>
+      <td>${details}</td>
+      <td>${i.checkable ? `<button type="button" data-check="${esc(i.name)}">Check now</button>` : '<span class="muted">from its real calls</span>'}</td></tr>`;
+  }
+
+  function readinessRow(c) {
+    const [cls, label] = RESULT_PILL[c.result] ?? ['open', c.result];
+    return `<tr><td>${esc(c.title)}<br><span class="muted">${esc(c.category.replace(/_/g, ' '))} · ${c.kind === 'manual' ? 'recorded by a reviewer' : 'checked by the system'}</span></td>
+      <td><span class="pill ${cls}">${esc(label)}</span></td>
+      <td>${c.result === 'no_evidence' ? `<strong>No evidence recorded.</strong> <span class="muted">Marked ${esc(c.recorded_status ?? 'passed')}, but nothing says what shows it.</span>` : esc(c.evidence)}</td>
+      <td>${c.checked_at ? esc(when(c.checked_at)) : '<span class="muted">never</span>'}</td></tr>`;
+  }
+
+  async function renderIntegrations(message) {
+    mount('integrations', '<p class="muted">Loading connections and readiness…</p>');
+    const res = await api('GET', '/console/integrations');
+    if (res.status === 403 || res.status === 401) {
+      return mount('integrations', `<div class="card empty"><h2>You don't have access to integrations and readiness</h2>
+        <p>It needs the readiness:review permission (project managers and administrators). This attempt has been recorded in the audit trail.</p>
+        <p class="muted">${esc(res.body?.message ?? '')}</p></div>`);
+    }
+    if (res.status !== 200) return mount('integrations', `<p class="banner bad">${esc(res.body?.message ?? 'The connections could not be loaded.')}</p>`);
+    const { items, readiness, generated_at: at } = res.body;
+    const a = readiness.assessment;
+    const s = readiness.summary;
+    mount('integrations', `<h1>Integrations &amp; readiness</h1>
+      <p class="sub">Each connection's status is worked out from its call records when this page loads (${esc(when(at))}); none of it is a stored flag. Reload to see the latest.</p>
+      <div id="notice"></div>
+      <h2>Connections</h2>
+      <table class="integrations"><thead><tr><th class="i-vendor">Connection</th><th class="i-mode">Connected as</th><th class="i-status">Status</th>
+        <th class="i-last">Last success</th><th class="i-detail">Details</th><th class="i-action"></th></tr></thead>
+        <tbody>${items.map(integrationRow).join('')}</tbody></table>
+      <h2>Go-live readiness</h2>
+      <div class="toolbar"><p class="muted grow">${a
+        ? `Latest assessment ${esc(when(a.finished_at))} by ${esc(a.reviewer_email)}: <strong>${a.verdict === 'ready' ? 'ready' : 'not ready'}</strong>, ${esc(a.days_remaining)} days to the July 1, 2027 go-live.`
+        : 'No assessment has been run yet, so the automatic checks have not run.'}
+        ${esc(s.passed)} pass, ${esc(s.failed)} fail, ${esc(s.no_evidence)} with no evidence, ${esc(s.not_run)} not run.</p>
+        <button type="button" class="primary" id="run-assessment">Run assessment now</button></div>
+      <table class="readiness"><thead><tr><th class="r-check">Check</th><th class="r-result">Result</th><th class="r-evidence">Evidence</th><th class="r-when">Checked or recorded</th></tr></thead>
+        <tbody>${readiness.checks.map(readinessRow).join('')}</tbody></table>`);
+    if (message) notice(message);
+
+    document.querySelectorAll('[data-check]').forEach((b) => b.addEventListener('click', () => {
+      b.disabled = true;
+      b.textContent = 'Checking…';
+      adminChange('POST', `/console/integrations/${encodeURIComponent(b.dataset.check)}/check`, {
+        ok: (r) => {
+          const c = r.body.check;
+          renderIntegrations(c.outcome === 'ok'
+            ? `<p class="banner good">${esc(r.body.status.vendor)} answered correctly just now. The status below includes this check.</p>`
+            : `<p class="banner warn">${esc(r.body.status.vendor)} check: ${esc(ERROR_CLASS[c.outcome] ?? c.outcome)}. ${esc(c.error ?? '')}</p>`);
+        },
+      });
+    }));
+    document.getElementById('run-assessment').addEventListener('click', (e) => {
+      e.target.disabled = true;
+      e.target.textContent = 'Running…';
+      adminChange('POST', '/readiness/assessments', {
+        body: {},
+        ok: (r) => renderIntegrations(`<p class="banner good">Assessment run: ${r.body.item?.verdict === 'ready' ? 'ready' : 'not ready'}. Each check below shows what it found.</p>`),
+      });
+    });
   }
 
   // ---------- routing ----------
@@ -759,7 +840,7 @@
         if (parts[1]) return await renderDraft(decodeURIComponent(parts[1]));
         return await renderIntakeQueue(Object.fromEntries(new URLSearchParams(query ?? '')));
       }
-      if (NAV.some((n) => n.route === parts[0])) return renderPlaceholder(parts[0]);
+      if (parts[0] === 'integrations') return await renderIntegrations();
       mount('', '<p class="banner bad">No such screen.</p>');
     } catch (err) {
       if (err instanceof SessionExpired) {

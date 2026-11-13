@@ -511,6 +511,27 @@
       "title": "Users are deactivated, never deleted",
       "body": "A role change for a user id that does not exist is refused (404) and the screen refreshes; a deactivated user cannot be given roles (409). Users are never deleted, so the audit trail always points at a real person. The console manages roles' members and settings; defining new roles is done through the roles API.",
       "evidence": "server/access.js (setUserActive); tests/adminConsole.test.js (no longer exists)"
+    },
+    {
+      "date": "2026-11-12",
+      "kind": "decision",
+      "title": "Connection status is worked out from call records, never stored",
+      "body": "The integrations view reads the GIS call log, the Blue Stakes call log, the vendor feed log and the record of checks people ran, and works out each status when it is asked for: healthy, failing (with the error class and when it began failing) or never called. There is no status column anywhere, so a status cannot be left behind after a failure.",
+      "evidence": "server/integrationStatus.js; tests/integrationStatus.test.js (the status follows the latest real call)"
+    },
+    {
+      "date": "2026-11-12",
+      "kind": "decision",
+      "title": "A reply with the wrong shape counts as a failure",
+      "body": "Check now asks GIS for its changes without moving the sync position, through the same client as every other GIS call (timeout, capped retries, logged). If GIS answers but the reply is not a list of changes, the check is recorded as unexpected_payload and the connection shows as failing; that call does not count as a success.",
+      "evidence": "server/integrationStatus.js (checkIntegration, gisChangesProblem); tests/integrationStatus.test.js (unexpected shape)"
+    },
+    {
+      "date": "2026-11-12",
+      "kind": "limitation",
+      "title": "Only GIS can be checked on demand",
+      "body": "Blue Stakes has no read-only call (its only call sends a ticket response), and the vendors read from us rather than us calling them, so their status comes from their real calls only. A readiness item marked done with no note is shown as no evidence recorded, not as a pass.",
+      "evidence": "server/integrationStatus.js (INTEGRATIONS, readinessView)"
     }
   ]
 }

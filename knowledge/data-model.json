@@ -1299,6 +1299,58 @@
           "via": "reviewer_user_id"
         }
       ]
+    },
+    {
+      "name": "integration_check",
+      "purpose": "One \"Check now\" a person ran from the integrations view: a real call to the integration and what the reply looked like. Append-only. Holds results, never a status.",
+      "requirements": [
+        "REQ-060"
+      ],
+      "fields": [
+        {
+          "name": "id",
+          "type": "integer",
+          "note": "primary key"
+        },
+        {
+          "name": "integration",
+          "type": "text",
+          "note": "e.g. gis"
+        },
+        {
+          "name": "requested_by",
+          "type": "uuid",
+          "note": "→ app_user"
+        },
+        {
+          "name": "outcome",
+          "type": "text",
+          "note": "ok | unexpected_payload | error | timeout | unauthorized"
+        },
+        {
+          "name": "error",
+          "type": "text"
+        },
+        {
+          "name": "started_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "finished_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "duration_ms",
+          "type": "integer"
+        }
+      ],
+      "relationships": [
+        {
+          "type": "belongs to",
+          "to": "app_user",
+          "via": "requested_by"
+        }
+      ]
     }
   ]
 }

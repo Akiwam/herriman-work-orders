@@ -6,12 +6,12 @@
 // Throwaway in-memory database: nothing is saved, and the example keys printed below stop existing
 // when you stop this (Ctrl+C). They are not real keys for any real system.
 
-import { exampleSystem } from './consoleLayoutCheck.js';
+import { exampleSystem, CONNECTIONS } from './consoleLayoutCheck.js';
 import { createApiServer } from './api/server.js';
 
 const port = Number(process.env.PORT ?? 4100);
 const { db, gis, key, samKey } = await exampleSystem({ workOrders: 24 });
-const server = createApiServer(db, { gis });
+const server = createApiServer(db, { gis, connections: CONNECTIONS });
 server.listen(port, '127.0.0.1', () => {
   console.log('Herriman Work Orders staff console (example data, nothing is saved)');
   console.log(`  Open:  http://127.0.0.1:${port}/console`);

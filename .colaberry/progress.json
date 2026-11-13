@@ -949,24 +949,42 @@
       "criteria": [
         {
           "text": "Given configured integrations, when the view loads, then each shows its vendor, status and the time of its last successful call.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given an integration has failed, when the view loads, then it is flagged with the error class and the time it began failing.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given the readiness checks, when the view loads, then each check shows pass or fail with the evidence behind it.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: every status shown is read from a real call result, never from a stored flag that nothing updates.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/integrationStatus.js",
+        "server/integrationsDemo.js",
+        "server/db.js",
+        "server/api/consoleRoutes.js",
+        "server/api/server.js",
+        "server/api/openapi.js",
+        "server/console/app.js",
+        "server/console/styles.css",
+        "server/consoleLayoutCheck.js",
+        "server/consoleServe.js",
+        "package.json",
+        "tests/consolePages.test.js",
+        "knowledge/notes.json",
+        "knowledge/data-model.json"
+      ],
+      "tests_added": [
+        "tests/integrationStatus.test.js",
+        "tests/integrationsConsole.test.js"
+      ],
+      "notes": "Integrations & readiness screen in the staff console (#/integrations), over GET /api/v1/console/integrations and POST /api/v1/console/integrations/{name}/check (readiness:review). Criteria: each integration shows vendor, status and last successful call (tests/integrationStatus.test.js \"every configured integration\", tests/integrationsConsole.test.js \"a project manager sees\"); a failing one shows its error class and when it began failing (integrationStatus.test.js \"a failing integration\", integrationsConsole.test.js \"when GIS is down\"); each readiness check shows pass or fail with its evidence, and done-with-no-note shows as no evidence (integrationStatus.test.js \"after an assessment\", \"marked done with no evidence\"); Trust: every status is worked out from the call logs (gis_log, bluestakes_log, vendor_exchange_log, integration_checks) on each request, never stored (integrationStatus.test.js \"the status follows the latest real call\", \"no status is stored\"). A GIS reply that succeeds with the wrong shape is flagged unexpected_payload. Vendors are one-way (they call us), so their status comes from their feed requests; Blue Stakes has no read-only call, so no Check now. All 17 console screens fit 1440x900. Run `npm test`, `npm run demo:integrations` and `npm run console`.",
       "updated_at": null,
       "verification": {
         "state": "not_started",

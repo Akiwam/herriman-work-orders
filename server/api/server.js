@@ -182,7 +182,7 @@ export function createApiServer(db, {
         return;
       }
       if (isConsoleApiPath(url.pathname)) {
-        await handleConsoleApi(req, res, db, url, { key: bearerKey(req), now, gis });
+        await handleConsoleApi(req, res, db, url, { key: bearerKey(req), now, gis, connections });
         return;
       }
       if (isVendorFeedPath(url.pathname)) {

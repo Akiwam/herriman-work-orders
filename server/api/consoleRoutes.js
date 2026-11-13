@@ -9,16 +9,22 @@
 //   GET    /api/v1/console/users              people work can be assigned to
 //   GET    /api/v1/console/map                every matching work order placed as the heat map places it, or listed
 //                                             as not on the map; ?from=&to=&status=&work_types= (STORY-016)
-// The reads need work_orders:read and are audited like every other read.
+//   GET    /api/v1/console/integrations       each connection's status, worked out from its call log now, and the
+//                                             readiness checks with their evidence (STORY-018, readiness:review)
+//   POST   /api/v1/console/integrations/{name}/check   "Check now": one real read-only call, recorded with who asked
+//                                             (readiness:review, a person; GIS only)
+// The work order reads need work_orders:read. Every read is audited like every other read.
 
 import { readFileSync } from 'node:fs';
 import { send, readJsonBody } from './http.js';
 import { PAGE_SECURITY_HEADERS } from './publicRoutes.js';
 import { writeAudit, ValidationError } from '../workOrders.js';
 import { startSession, endSession } from '../consoleSessions.js';
-import { AuditUnavailableError, auditedRead, authenticate } from './clients.js';
+import { AuditUnavailableError, auditedRead, authenticate, requirePerson } from './clients.js';
 import { listConsoleWorkOrders, consoleWorkOrderDetail, withLiveGis, assignableUsers } from '../consoleViews.js';
 import { mapPoints, withGisCheck } from '../mapView.js';
+import { integrationStatus, readinessView, checkIntegration } from '../integrationStatus.js';
+import { READINESS_REVIEW } from '../readiness.js';
 
 export const CONSOLE_API = '/api/v1/console';
 const SESSION = `${CONSOLE_API}/session`;
@@ -28,8 +34,10 @@ const ONE = new RegExp(`^${LIST}/([^/]+)$`);
 const USERS = `${CONSOLE_API}/users`;
 const ME = `${CONSOLE_API}/me`;
 const MAP = `${CONSOLE_API}/map`;
+const INTEGRATIONS = `${CONSOLE_API}/integrations`;
+const CHECK = new RegExp(`^${INTEGRATIONS}/([^/]+)/check$`);
 
-export const isConsoleApiPath = (pathname) => [SESSION, LIST, USERS, ME, MAP].includes(pathname) || ONE.test(pathname);
+export const isConsoleApiPath = (pathname) => [SESSION, LIST, USERS, ME, MAP, INTEGRATIONS].includes(pathname) || ONE.test(pathname) || CHECK.test(pathname);
 
 // The console's own files, served with the same strict security headers as the public page.
 const PAGE_FILES = {
@@ -51,8 +59,26 @@ export function serveConsolePage(req, res, pathname) {
   res.end(req.method === 'HEAD' ? undefined : content);
 }
 
-export async function handleConsoleApi(req, res, db, url, { key, now, gis }) {
+export async function handleConsoleApi(req, res, db, url, { key, now, gis, connections = {} }) {
   const opts = now ? { now } : {};
+  if (url.pathname === INTEGRATIONS) {
+    if (req.method !== 'GET') return send(res, 405, { error: 'method_not_allowed', message: 'Use GET here' }, { Allow: 'GET' });
+    // Worked out inside the audited read, so what is returned is exactly what the call logs say now.
+    const view = auditedRead(db, { key, operation: 'consoleIntegrations', scope: READINESS_REVIEW }, () => ({
+      ...integrationStatus(db, { connections, ...opts }), readiness: readinessView(db),
+    }), opts);
+    return send(res, 200, view, { 'Cache-Control': 'no-store' });
+  }
+  const check = CHECK.exec(url.pathname);
+  if (check) {
+    if (req.method !== 'POST') return send(res, 405, { error: 'method_not_allowed', message: 'Use POST to check now' }, { Allow: 'POST' });
+    const name = decodeURIComponent(check[1]);
+    const person = requirePerson(db, { key, operation: 'consoleCheckIntegration', params: { name }, scope: READINESS_REVIEW });
+    // No injected clock here: the check's times must be real so they line up with the GIS log's own.
+    const result = await checkIntegration(db, name, { gis, actorUserId: person.user_id });
+    const status = integrationStatus(db, { connections, ...opts }).items.find((i) => i.name === name);
+    return send(res, 200, { check: result.check, status });
+  }
   if (url.pathname === ME) {
     const who = authenticate(db, key);
     if (!who || who.kind !== 'user') {

@@ -24,8 +24,13 @@ import { startSession } from './consoleSessions.js';
 import { submitPublicRequest } from './publicRequests.js';
 import { loadStandInTickets } from './locateTickets.js';
 import { receiveLocateTicket, approveDraft, listDrafts } from './intake.js';
+import { createBlueStakesClient, createBlueStakesLogger, IntegrationError } from './bluestakes.js';
+import { vendorFeed, logExchange } from './vendors.js';
+import { runAssessment, recordItem } from './readiness.js';
 
 const run = promisify(execFile);
+/** How the example system is connected: both outside services are stand-ins, and the screens say so. */
+export const CONNECTIONS = { gis: 'stand_in', bluestakes: 'stand_in' };
 export const EDGE = process.env.EDGE_PATH ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 export const edgeAvailable = () => existsSync(EDGE);
 
@@ -76,13 +81,36 @@ export async function exampleSystem({ workOrders = 60 } = {}) {
   const drafts = listDrafts(db);
   const undeterminedDraftId = drafts.find((d) => d.undetermined.length)?.id;
   const { workOrder: approved } = await approveDraft(db, drafts.find((d) => d.proposed.work_type === 'pothole').id, { actorUserId: admin.id, changes: { priority: 'high' } });
+
+  // Integrations (STORY-018). GIS is already healthy: the work orders above called it for real. Blue
+  // Stakes: real calls through the real client to a stand-in that answers once, then has an outage, so
+  // the view shows a failing connection. Madison AI reads its feed once, recorded exactly as the feed
+  // route records it. Lama and SpryPoint have never called.
+  let outage = false;
+  const bluestakes = createBlueStakesClient({
+    kind: 'stand-in',
+    sendResponse: async (ticket, response) => {
+      if (outage) throw new IntegrationError('Blue Stakes did not accept the connection (example outage on the stand-in)');
+      return { accepted: true, response_id: response.response_id };
+    },
+  }, { log: createBlueStakesLogger(db), timeoutMs: 1000, attempts: 2, delayMs: 1 });
+  await bluestakes.sendResponse('EXAMPLE-1', { response_id: 'example-response-1' });
+  outage = true;
+  await bluestakes.sendResponse('EXAMPLE-2', { response_id: 'example-response-2' }).catch(() => {});
+  const startedAt = new Date().toISOString();
+  const feed = vendorFeed(db, 'madison_ai', { limit: '5' });
+  logExchange(db, { vendor: 'madison_ai', clientName: 'madison-ai-example', contractVersion: 1, recordsReturned: feed.items.length, outcome: 'ok', startedAt, finishedAt: new Date().toISOString() });
+  // Readiness (STORY-010): one assessment run, one item with its evidence, one marked done with none.
+  await runAssessment(db, { actorUserId: admin.id, connections: CONNECTIONS });
+  recordItem(db, 'data_conversion.source_identified', { status: 'done', note: 'Example: the current work orders are kept in spreadsheets by each department' }, as);
+  recordItem(db, 'testing.staff_trained', { status: 'done' }, as);
   return { db, gis, key, samKey, detailId, undeterminedDraftId, approvedWorkOrderId: approved.id };
 }
 
 /** Open every screen at 1440x900 and report whether each fits. */
 export async function runLayoutCheck({ screenshots = null } = {}) {
   const { db, gis, key, samKey, detailId, undeterminedDraftId, approvedWorkOrderId } = await exampleSystem();
-  const server = createApiServer(db, { gis });
+  const server = createApiServer(db, { gis, connections: CONNECTIONS });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}/console`;
   const { token } = startSession(db, key);
@@ -106,7 +134,8 @@ export async function runLayoutCheck({ screenshots = null } = {}) {
     ['administration: settings', `#/admin/settings?session=${token}`, /public\.rate_limit_per_hour[\s\S]*Save/],
     ['administration: audit trail', `#/admin/audit?session=${token}`, /Previous value[\s\S]*Next page/],
     ['administration refused (field crew)', `#/admin/users?session=${crewToken}`, /have access to users[\s\S]*has been recorded/],
-    ['integrations & readiness (placeholder)', `#/integrations?session=${token}`, /STORY-018 · coming next<\/p>/],
+    ['integrations & readiness', `#/integrations?session=${token}`, /Blue Stakes of Utah[\s\S]*failing[\s\S]*Failing since[\s\S]*Lama[\s\S]*never called[\s\S]*No evidence recorded/],
+    ['integrations refused (field crew)', `#/integrations?session=${crewToken}`, /have access to integrations and readiness[\s\S]*has been recorded/],
   ];
   const first = await fetch(`${base.replace('/console', '/api/v1')}/console/work-orders`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json());
   screens[2][1] = `#/work-orders?cursor=${first.next_cursor}&session=${token}`;

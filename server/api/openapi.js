@@ -348,6 +348,24 @@ export function openApiDocument() {
           responses: { 200: { description: 'points, unplaced, total, empty, gis_status' }, 400: { description: 'Bad filters' }, 401: { description: 'Not signed in' } },
         },
       },
+      '/console/integrations': {
+        get: {
+          summary: 'Each external connection with its status and last successful call, and the readiness checks with their evidence (needs readiness:review)',
+          description: 'Every status is worked out from the call logs when asked: healthy, failing (with error_class and failing_since) or never_called. '
+            + 'Nothing is a stored flag. Readiness checks: pass, fail, no_evidence or not_run, each with its evidence.',
+          responses: { 200: { description: 'generated_at, items (the integrations) and readiness' }, 401: { description: 'Not signed in' }, 403: { description: 'No readiness:review (the refusal is audited)' } },
+        },
+      },
+      '/console/integrations/{name}/check': {
+        post: {
+          summary: 'Check now: one real, read-only call to the integration, recorded with who asked (readiness:review, a person). GIS only.',
+          parameters: [{ name: 'name', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'check (outcome: ok | unexpected_payload | error | timeout | unauthorized) and the integration\'s status' },
+            400: { description: 'This integration has no read-only call, or GIS is not connected' }, 403: { description: 'Refused (audited)' }, 404: { description: 'No such integration' },
+          },
+        },
+      },
       '/console/users': { get: { summary: 'People work can be assigned to (active, with work_orders:write)', responses: { 200: { description: 'OK' } } } },
       '/work-orders/{id}/workflow': {
         get: {

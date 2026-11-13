@@ -409,6 +409,23 @@ const SCHEMA = `
     cell_count     INTEGER
   );
 
+  -- "Check now" calls a person makes from the integrations view (STORY-018), one row per check.
+  -- A check is a real call through the same client as everything else (so it is also in gis_log);
+  -- this row adds what the check found about the reply, e.g. a success with an unexpected shape.
+  -- Append-only. The integrations view works out every status from these rows and the call logs;
+  -- there is no stored status anywhere.
+  CREATE TABLE IF NOT EXISTS integration_checks (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    integration   TEXT NOT NULL,               -- e.g. gis
+    requested_by  TEXT NOT NULL,               -- the user id of the person who asked for the check
+    outcome       TEXT NOT NULL,               -- ok | unexpected_payload | error | timeout | unauthorized
+    error         TEXT,
+    started_at    TEXT NOT NULL,
+    finished_at   TEXT NOT NULL,
+    duration_ms   INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS integration_checks_by_name ON integration_checks (integration, finished_at);
+
   -- Append-only: rows are inserted, never updated or deleted.
   CREATE TABLE IF NOT EXISTS audit_entries (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
