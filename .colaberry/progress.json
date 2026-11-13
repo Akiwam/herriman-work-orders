@@ -890,24 +890,37 @@
       "criteria": [
         {
           "text": "Given work orders with locations, when the map loads, then each one is plotted at its GIS coordinates.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a date range is selected, when the heat map renders, then it reflects only work orders within that range.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given the GIS source is unavailable, when the map loads, then it says so and still lists the work orders.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: the map reads the same GIS record as the API, so what is displayed and what is stored cannot disagree.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/mapView.js",
+        "server/mapDemo.js",
+        "server/api/consoleRoutes.js",
+        "server/api/openapi.js",
+        "server/console/app.js",
+        "server/console/styles.css",
+        "server/consoleLayoutCheck.js",
+        "package.json",
+        "tests/consolePages.test.js",
+        "knowledge/notes.json"
+      ],
+      "tests_added": [
+        "tests/mapView.test.js"
+      ],
+      "notes": "Map and heat map in the staff console (#/map, heat layer #/map?heat=1) over GET /api/v1/console/map. Criteria: each work order with a location is plotted at its coordinates, and one without is listed with the reason (tests/mapView.test.js:31); a date range shows only work orders in that range: the map uses the heat map's own filters and always counts the same work orders (mapView.test.js:41), and the heat map's date filter is proved in tests/heatMaps.test.js:78-90; an empty range is an empty result, not an error (mapView.test.js:50); GIS unavailable: the map says so and still shows every work order from the stored record (mapView.test.js:75); Trust: GIS confirms each linked position and a moved asset is flagged, never silently moved (mapView.test.js:57), and the HTTP map returns exactly what mapPoints gives (mapView.test.js:89). Grid map with no street basemap (that would need an outside tile service). Built in commit 1a742c2. Run `npm test` and `npm run demo:map`.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",
