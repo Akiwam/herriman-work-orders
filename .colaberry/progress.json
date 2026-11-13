@@ -745,28 +745,50 @@
       "criteria": [
         {
           "text": "Given work orders exist, when the console loads, then each row shows status, assignee and location.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given a work order is opened, when the detail view renders, then its full history and GIS record appear on one screen.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given no work orders exist, when the console loads, then an empty state is shown rather than an error.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given the console is deployed, when it is opened at 1440x900, then every screen renders without a horizontal scrollbar so it can be captured for the proposal exhibit.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: every action taken in the console writes to the same audit trail as the API, recording who did it and when.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/consoleSessions.js",
+        "server/consoleViews.js",
+        "server/api/consoleRoutes.js",
+        "server/console/index.html",
+        "server/console/app.js",
+        "server/console/styles.css",
+        "server/consoleLayoutCheck.js",
+        "server/consoleServe.js",
+        "server/api/clients.js",
+        "server/api/server.js",
+        "server/api/openapi.js",
+        "server/api/workOrderWrites.js",
+        "server/workOrders.js",
+        "server/db.js",
+        "package.json",
+        "knowledge/notes.json",
+        "knowledge/data-model.json"
+      ],
+      "tests_added": [
+        "tests/consoleViews.test.js",
+        "tests/consoleSessions.test.js",
+        "tests/consolePages.test.js"
+      ],
+      "notes": "Staff console at /console: a person signs in with their personal key and gets a session (30 min idle, 8 h max) that acts as them, in the same audit trail as the API. Criteria: rows show status, assignee and location (tests/consoleViews.test.js:36); detail shows full history and the live GIS record on one screen, with the saved copy if GIS is down (consoleViews.test.js:77, :98); no work orders gives an empty state, not an error (consoleViews.test.js:55); every screen fits 1440x900 with no horizontal scrollbar, checked in headless Edge (tests/consolePages.test.js:51, npm run console:check); console actions are audited with who and when (tests/consoleSessions.test.js:76). Built in commit b1e7b56. Run `npm test` and `npm run console`.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",
