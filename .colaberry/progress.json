@@ -946,24 +946,34 @@
       "criteria": [
         {
           "text": "Given I am an administrator, when I open the console, then I can view and change user roles and system settings.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given I am not an administrator, when I open the console, then I am refused and the refusal is recorded.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Given any change is made, when I open the audit trail, then that change appears with actor, timestamp and previous value.",
-          "passed": false
+          "passed": true
         },
         {
           "text": "Trust: the console enforces the same role checks as the API, so no screen can grant what the API would refuse.",
-          "passed": false
+          "passed": true
         }
       ],
-      "files_touched": [],
-      "tests_added": [],
-      "notes": null,
+      "files_touched": [
+        "server/console/app.js",
+        "server/console/styles.css",
+        "server/adminDemo.js",
+        "server/consoleLayoutCheck.js",
+        "package.json",
+        "tests/consolePages.test.js",
+        "knowledge/notes.json"
+      ],
+      "tests_added": [
+        "tests/adminConsole.test.js"
+      ],
+      "notes": "Administration console (#/admin/users, roles, settings, audit) over the existing access, settings and audit APIs, with no permission logic of its own. Criteria: an administrator views users, roles and settings and changes a role and a setting (tests/adminConsole.test.js:45); a non-administrator is refused on every administration screen and each refusal is recorded with who tried (adminConsole.test.js:65, :76); every change appears in the audit trail with actor, time and previous value (adminConsole.test.js:123); Trust: a supervisor's session cannot grant roles, change settings or deactivate anyone, nothing changes and every attempt is recorded (adminConsole.test.js:86). Failure paths: the last administrator cannot remove their own role (:99); a user who no longer exists gives 404 (:109); an audit trail longer than one page is paged without skipping or repeating (:138). Built in commit b1656bc. Run `npm test` and `npm run demo:admin`.",
       "updated_at": null,
       "verification": {
         "state": "in_progress",
