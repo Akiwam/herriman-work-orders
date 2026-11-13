@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "1",
+  "projectId": "062d6c26-d24a-4c98-a59e-7e1a4bb17890",
+  "storyId": "STORY-018",
+  "projectTruthBaseRevision": 0,
+  "observedAt": "2026-11-13T03:40:00Z",
+  "sourceCommitSha": "d65e1dfc13654fbce5730259aaaa07692037d8bb",
+  "factProposals": [
+    {
+      "dimension": "outputs",
+      "value": "An integrations and readiness screen in the staff console showing each external connection (City GIS, Blue Stakes, Madison AI, Lama, SpryPoint) with its status and last successful call, and each go-live readiness check with pass or fail and its evidence.",
+      "evidence": "server/console/app.js (renderIntegrations); server/api/consoleRoutes.js (/console/integrations)"
+    },
+    {
+      "dimension": "integrations",
+      "value": "Connection status is read from the call logs the integrations already write: the GIS call log, the Blue Stakes call log and the vendor feed log, plus on-demand checks of GIS.",
+      "evidence": "server/integrationStatus.js (INTEGRATIONS, integrationStatus)"
+    },
+    {
+      "dimension": "data",
+      "value": "A new append-only record of on-demand integration checks: who asked, when, and the outcome (ok, unexpected_payload, error, timeout or unauthorized). It holds call results, never a status.",
+      "evidence": "server/db.js (integration_checks); tests/integrationStatus.test.js (no status is stored)"
+    },
+    {
+      "dimension": "actors",
+      "value": "Project managers and administrators (readiness:review) see the view and run checks; field crew are refused and the refusal is recorded.",
+      "evidence": "tests/integrationsConsole.test.js (field crew are refused)"
+    },
+    {
+      "dimension": "exceptions",
+      "value": "A connection that has never been called shows no last successful call; a failing one shows its error class and the time it began failing; a reply that succeeds with an unexpected shape is a failure; a readiness item marked done with no note shows as no evidence recorded.",
+      "evidence": "tests/integrationStatus.test.js"
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "Work out every connection status from the call records on each request instead of storing a status.",
+      "rationale": "A stored flag can be left behind after a failure; a status computed from the latest real call cannot.",
+      "evidence": "server/integrationStatus.js; tests/integrationStatus.test.js (the status follows the latest real call)"
+    },
+    {
+      "statement": "Check now makes a read-only GIS call (changes since the sync position, without moving it) through the existing GIS client.",
+      "rationale": "It must be a real call with the same timeout, capped retries and logging as every other GIS call, and running it twice must change nothing.",
+      "evidence": "server/integrationStatus.js (checkIntegration)"
+    },
+    {
+      "statement": "Treat the vendor connections as one-way: their status comes from their requests to our feed, and a feed answer that breaks the vendor contract is shown as a mismatch.",
+      "rationale": "We have no vendor endpoints or credentials to call; vendors read from us.",
+      "evidence": "server/integrationStatus.js (INTEGRATIONS); tests/integrationStatus.test.js (mismatch)"
+    }
+  ],
+  "limitations": [
+    {
+      "statement": "Only GIS can be checked on demand. Blue Stakes has no read-only call, and the vendors are not called by the system, so their status comes from their real calls only.",
+      "evidence": "server/integrationStatus.js (checkable)"
+    },
+    {
+      "statement": "GIS and Blue Stakes are stand-ins in this build, and the screen says so; no live service has been connected.",
+      "evidence": "server/consoleLayoutCheck.js (CONNECTIONS)"
+    },
+    {
+      "statement": "The prompt's failure path 'a vendor endpoint returns success with an unexpected payload shape' assumes the system calls vendor endpoints; it does not, so it is met for GIS replies and for vendor contract mismatches instead.",
+      "evidence": "tests/integrationStatus.test.js (unexpected shape; mismatch)"
+    }
+  ],
+  "demonstrationEvidence": [
+    {
+      "kind": "test",
+      "ref": "tests/integrationStatus.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/integrationsConsole.test.js"
+    },
+    {
+      "kind": "test",
+      "ref": "tests/consolePages.test.js"
+    },
+    {
+      "kind": "demo",
+      "ref": "server/integrationsDemo.js (npm run demo:integrations)"
+    },
+    {
+      "kind": "commit",
+      "ref": "d65e1dfc13654fbce5730259aaaa07692037d8bb"
+    }
+  ],
+  "measurementEvents": []
+}
